@@ -13,6 +13,7 @@ from qdrant_client import QdrantClient, models
 
 
 ### Type hints ###
+from typing import Any
 
 
 ### Internal modules ###
@@ -53,12 +54,28 @@ class VectorDatabase(ServiceBase):
         # Similarity threshold for deduplicating content before adding to Qdrant.
         self.vector_database_update_threshold = float(os.environ["RAG_UPDATE_THRESHOLD"])
 
+        # Keep model weights on a persistent volume instead of the container
+        # layer; HF_HOME makes transformers and tokenizers use the same place.
+        self._model_cache_dir: str | None = os.getenv("EMBEDDING_MODEL_DIR")
+
+        if self._model_cache_dir:
+            os.environ.setdefault("HF_HOME", self._model_cache_dir)
+            os.environ.setdefault("SENTENCE_TRANSFORMERS_HOME", self._model_cache_dir)
+
+            print(
+                set_color(
+                    status="info",
+                    information=f"[vector_database] Model cache directory: {self._model_cache_dir}"
+                )
+            )
+
         # Build the document splitter, the embedding model and the vector store.
         self.document_splitter: RecursiveCharacterTextSplitter = VectorDatabase._build_document_splitter()
 
         self.database_update_embedding: HuggingFaceEmbeddings = VectorDatabase._build_embeddings(
             model_name=VectorDatabase._resolve_embedding_model_name(),
-            device=device
+            device=device,
+            cache_folder=self._model_cache_dir
         )
 
         self.database: QdrantVectorStore = VectorDatabase._connect_vector_store(
@@ -112,7 +129,8 @@ class VectorDatabase(ServiceBase):
     @staticmethod
     def _build_embeddings(
         model_name: str,
-        device: str
+        device: str,
+        cache_folder: str | None = None
     ) -> HuggingFaceEmbeddings:
         """
         Build the embedding model for documents and queries.
@@ -120,16 +138,23 @@ class VectorDatabase(ServiceBase):
         Args:
             model_name (str): Hugging Face name of the embedding model.
             device (str): use cuda or cpu.
+            cache_folder (str | None, optional): where model weights are downloaded.
+                Defaults to None (the Hugging Face default cache).
 
         Returns:
             embeddings (HuggingFaceEmbeddings): embedding model.
         """
-        return HuggingFaceEmbeddings(
-            model_name=model_name,
-            multi_process=False,  # TODO
-            model_kwargs={"device": device},
-            encode_kwargs={"normalize_embeddings": True}
-        )
+        embed_kwargs: dict[str, Any] = {
+            "model_name":       model_name,
+            "multi_process":    False,  # TODO
+            "model_kwargs":     {"device": device},
+            "encode_kwargs":    {"normalize_embeddings": True}
+        }
+
+        if cache_folder:
+            embed_kwargs["cache_folder"] = cache_folder
+
+        return HuggingFaceEmbeddings(**embed_kwargs)
 
 
     @staticmethod
@@ -219,7 +244,12 @@ class VectorDatabase(ServiceBase):
         if self._reranker is None:
             try:
                 from sentence_transformers import CrossEncoder
-                self._reranker = CrossEncoder(self.reranker_model, device=self.device)
+                reranker_kwargs: dict[str, Any] = {"device": self.device}
+
+                if self._model_cache_dir:
+                    reranker_kwargs["cache_folder"] = self._model_cache_dir
+
+                self._reranker = CrossEncoder(self.reranker_model, **reranker_kwargs)
             except Exception as e:
                 print(set_color("warning", f"Reranker load failed ({self.reranker_model}): {e}"))
                 return []
