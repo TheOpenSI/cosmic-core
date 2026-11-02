@@ -37,6 +37,9 @@ DOCUMENT_QA_PERSONA: str = "document_qa"
 # forced route used when a file is attached to an unsure query.
 GENERIC_SERVICE_IDS: tuple[str, ...] = ("4", "rag_fallback")
 
+# Closing line of the block written by `build_context_from_chat_history()`.
+CHAT_HISTORY_END_MARKER: str = "End of Chat History"
+
 
 class QABase(ServiceBase):
     def __init__(
@@ -350,10 +353,45 @@ class QABase(ServiceBase):
         return use_rag
 
 
+    @staticmethod
+    def _strip_chat_history(
+        context: str | dict
+    ) -> str | dict:
+        """
+        Remove the chat history block from a context.
+
+        The block written by `build_context_from_chat_history()` always comes
+        first, so everything up to the end of its closing marker line is dropped.
+        Only the main answer call uses this: it receives the history as chat
+        messages, while the other services still need it in the context.
+
+        Args:
+            context (str | dict): context, or a dict holding it under "context".
+
+        Returns:
+            context (str | dict): the context without the chat history block.
+        """
+        if isinstance(context, dict):
+            return {
+                **context,
+                "context": QABase._strip_chat_history(context=context.get("context", ""))
+            }
+
+        marker_index: int = context.find(CHAT_HISTORY_END_MARKER)
+
+        if marker_index < 0:
+            return context
+
+        line_end: int = context.find("\n", marker_index)
+
+        return "" if line_end < 0 else context[line_end + 1:]
+
+
     def _split_chat_history_context(self, context: str) -> tuple[str, str]:
         """
         Split context into its chat-history and non-history parts, based on
-        whether it carries the "Conversation History:" marker.
+        whether it carries the "Conversation History" marker written by
+        `build_context_from_chat_history()`.
 
         Args:
             context (str): context associated with the question.
@@ -363,7 +401,7 @@ class QABase(ServiceBase):
 
             rag_context (str): context if it doesn't hold chat history, else "".
         """
-        is_chat_history = "Conversation History:" in context
+        is_chat_history = "Conversation History" in context
         return (context, "") if is_chat_history else ("", context)
 
 
@@ -677,15 +715,16 @@ class QABase(ServiceBase):
         # for legacy purposes. Change to `dict[int, dict[str, str]]` type when
         # update to handle `int` properly
         services:               dict[str, dict[str, str]],
-        context:                str | dict[str, str]    = "",
-        is_rag:                 bool                    = False,
-        verbose:                bool                    = False,
-        user_id:                str | None              = None,
-        session_id:             str | None              = None,
-        global_service_names:   list[str] | None        = None,
-        memory_service_active:  bool                    = False,
-        has_files:              bool                    = False,
-        file_refs:              list[str] | None        = None,
+        context:                str | dict[str, str]        = "",
+        is_rag:                 bool                        = False,
+        verbose:                bool                        = False,
+        user_id:                str | None                  = None,
+        session_id:             str | None                  = None,
+        global_service_names:   list[str] | None            = None,
+        memory_service_active:  bool                        = False,
+        has_files:              bool                        = False,
+        file_refs:              list[str] | None            = None,
+        history_messages:       list[dict[str, str]] | None = None
     ) -> tuple[str, str, datetime, int, int ,float | int]:
         """
         Process each QA.
@@ -717,6 +756,9 @@ class QABase(ServiceBase):
 
             file_refs (list[str] | None, optional): 
                 attached file references in "<8-hex file_id>_<name>" form. Defaults to None.
+
+            history_messages (list[dict[str, str]] | None, optional):
+                prior user and assistant turns, sent to the LLM as chat messages. Defaults to None.
 
         Returns:
             response (str): truncated answer if applicable.
@@ -895,12 +937,18 @@ class QABase(ServiceBase):
                 output_token
             ) = self.llm( # pyright: ignore[reportAssignmentType]
                 question=user_prompt,
-                context=context,
+                # Prior turns go as chat messages here, so drop their text copy.
+                context=(
+                    QABase._strip_chat_history(context=context)
+                    if history_messages
+                    else context
+                ),
                 service_name=self._select_persona(
                     service_option,
                     routed_service_name=services_name.get(service_option, ""),
                     answered_from_file=answered_from_file
-                )
+                ),
+                history_messages=history_messages
             )
 
             # Acknowledge an attached file the question was not about, even when

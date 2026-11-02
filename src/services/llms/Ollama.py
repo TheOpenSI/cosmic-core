@@ -108,9 +108,10 @@ class Ollama(LLMBase):
 
     def __call__(
         self,
-        question:       str,
-        context:        str | dict[str, Any]    = {},
-        service_name:   str                     = "",
+        question:           str,
+        context:            str | dict[str, Any]            = {},
+        service_name:       str                             = "",
+        history_messages:   list[dict[str, str]] | None     = None
     ) -> tuple[str, str, datetime, int, int]:
         """
         Process the question and generate a response using Ollama.
@@ -156,11 +157,12 @@ class Ollama(LLMBase):
             context=context
         )
 
-        # Combine system prompt with user prompt
+        # Combine system prompt, prior turns and user prompt.
         combined_prompt: list[dict[str, str]] = self.system_prompter(
             user_prompt,
             context=context,
-            service=service_name # pyright: ignore[reportCallIssue]
+            service=service_name, # pyright: ignore[reportCallIssue]
+            history_messages=history_messages
         )
 
         # Chat

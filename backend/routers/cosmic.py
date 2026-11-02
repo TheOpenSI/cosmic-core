@@ -32,7 +32,10 @@ from ...types.json_schemas import (
     ChatSessionPayload,
     LLM_ROLE
 )
-from ...utils.chat_history import build_context_from_chat_history
+from ...utils.chat_history import (
+    build_context_from_chat_history,
+    build_messages_from_chat_history
+)
 from ...utils.log_tool import set_color
 
 
@@ -240,6 +243,9 @@ async def process_cosmic(
                     question = splits[1]
 
                 chat_history_context: str = build_context_from_chat_history(details=chat_history)
+                history_messages: list[dict[str, str]] = build_messages_from_chat_history(
+                    details=chat_history
+                )
 
                 # Start CodeCarbon emission tracking process (for General user queries).
                 general_tracker: EmissionsTracker = EmissionsTracker(
@@ -262,6 +268,7 @@ async def process_cosmic(
                     ) = opensi_cosmic(
                         question=question,
                         context=chat_history_context,
+                        history_messages=history_messages,
                         session_id=chat_session_id,
                         has_files=has_files,
                         user_id=user_id,
