@@ -53,72 +53,148 @@ class VectorDatabase(ServiceBase):
         # Similarity threshold for deduplicating content before adding to Qdrant.
         self.vector_database_update_threshold = float(os.environ["RAG_UPDATE_THRESHOLD"])
 
-        # For document analysis and knowledge database generation/update.
-        # Known short aliases map to their full Hugging Face repo id; any other
-        # value is treated as a direct Hugging Face model name.
-        EMBEDDING_MODEL_DICT = {'gte-small': "thenlper/gte-small"}
+        # Build the document splitter, the embedding model and the vector store.
+        self.document_splitter: RecursiveCharacterTextSplitter = VectorDatabase._build_document_splitter()
 
-        # Set page separators.
-        MARKDOWN_SEPARATORS = ["\n\n", "\n", ""]
+        self.database_update_embedding: HuggingFaceEmbeddings = VectorDatabase._build_embeddings(
+            model_name=VectorDatabase._resolve_embedding_model_name(),
+            device=device
+        )
 
-        # Set splitter to split a document into pages.
-        self.document_splitter = RecursiveCharacterTextSplitter(
+        self.database: QdrantVectorStore = VectorDatabase._connect_vector_store(
+            embedding=self.database_update_embedding
+        )
+
+        # Set a time stamp to highlight the most recently updated information.
+        self.time_stamper:              str = datetime.now(tz=ZoneInfo(key="Australia/Sydney")).strftime(format="%B, %Y")
+
+
+    @staticmethod
+    def _resolve_embedding_model_name() -> str:
+        """
+        Resolve `RAG_EMBEDDING_MODEL` to a Hugging Face model name.
+
+        Known short aliases map to their full Hugging Face repo id; any other
+        value is treated as a direct Hugging Face model name.
+
+        Returns:
+            model_name (str): Hugging Face name of the embedding model.
+        """
+        EMBEDDING_MODEL_DICT: dict[str, str] = {"gte-small": "thenlper/gte-small"}
+        document_analyser_model: str = os.environ["RAG_EMBEDDING_MODEL"]
+
+        return EMBEDDING_MODEL_DICT.get(document_analyser_model, document_analyser_model)
+
+
+    @staticmethod
+    def _build_document_splitter() -> RecursiveCharacterTextSplitter:
+        """
+        Build the splitter that cuts a document into chunks.
+
+        Returns:
+            document_splitter (RecursiveCharacterTextSplitter): splitter for documents.
+        """
+        MARKDOWN_SEPARATORS: list[str] = [
+            "\n\n",
+            "\n",
+            ""
+        ]
+
+        return RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=100,
             add_start_index=True,
             strip_whitespace=True,
-            separators=MARKDOWN_SEPARATORS,
+            separators=MARKDOWN_SEPARATORS
         )
 
-        # Build a document analyser.
-        document_analyser_model = os.environ["RAG_EMBEDDING_MODEL"]
-        EMBEDDING_MODEL_NAME = EMBEDDING_MODEL_DICT.get(document_analyser_model, document_analyser_model)
 
-        self.database_update_embedding = HuggingFaceEmbeddings(
-            model_name=EMBEDDING_MODEL_NAME,
+    @staticmethod
+    def _build_embeddings(
+        model_name: str,
+        device: str
+    ) -> HuggingFaceEmbeddings:
+        """
+        Build the embedding model for documents and queries.
+
+        Args:
+            model_name (str): Hugging Face name of the embedding model.
+            device (str): use cuda or cpu.
+
+        Returns:
+            embeddings (HuggingFaceEmbeddings): embedding model.
+        """
+        return HuggingFaceEmbeddings(
+            model_name=model_name,
             multi_process=False,  # TODO
             model_kwargs={"device": device},
-            encode_kwargs={"normalize_embeddings": True},
+            encode_kwargs={"normalize_embeddings": True}
         )
 
-        # Initialize Qdrant client connecting to the Docker service.
-        # Collection name defaults to "cosmic_collection".
-        # The URL points to the qdrant service defined in docker-compose.yml.
-        qdrant_url = os.getenv("QDRANT_URL", "http://qdrant:6333")
-        collection_name = "cosmic_collection"
 
-        print(set_color("info", f"Connecting to Qdrant at {qdrant_url}..."))
+    @staticmethod
+    def _connect_vector_store(
+        embedding: HuggingFaceEmbeddings
+    ) -> QdrantVectorStore:
+        """
+        Connect to the Qdrant collection, creating it on first start.
 
-        client = QdrantClient(url=qdrant_url)
+        The URL points to the qdrant service defined in docker-compose.yml.
 
-        # Check collection exists if not create one 
-        if not client.collection_exists(collection_name):
-            embedding_dim = len(
-                self.database_update_embedding.embed_query("dimension probe")
+        Args:
+            embedding (HuggingFaceEmbeddings): embedding model of the collection.
+
+        Returns:
+            database (QdrantVectorStore): vector store over the collection.
+        """
+        qdrant_url: str = os.getenv("QDRANT_URL", "http://qdrant:6333")
+        collection_name: str = "cosmic_collection"
+
+        print(
+            set_color(
+                status="info",
+                information=f"[vector_database] Connecting to Qdrant at {qdrant_url}..."
             )
+        )
+
+        client: QdrantClient = QdrantClient(url=qdrant_url)
+
+        # The vector size comes from the embedding model, so probe it once.
+        if not client.collection_exists(collection_name):
+            embedding_dim: int = len(embedding.embed_query("dimension probe"))
+
             client.create_collection(
                 collection_name=collection_name,
                 vectors_config=models.VectorParams(
                     size=embedding_dim,
-                    distance=models.Distance.COSINE,
-                ),
+                    distance=models.Distance.COSINE
+                )
             )
-            print(set_color("info", f"Created Qdrant collection: {collection_name}"))
 
-        # Attach to the existing collection
-        self.database = QdrantVectorStore(
+            print(
+                set_color(
+                    status="info",
+                    information=f"[vector_database] Created Qdrant collection: {collection_name}"
+                )
+            )
+
+        database: QdrantVectorStore = QdrantVectorStore(
             client=client,
             collection_name=collection_name,
-            embedding=self.database_update_embedding,
+            embedding=embedding
         )
 
-        print(set_color("success", f"Connected to Qdrant collection: {collection_name}"))
+        print(
+            set_color(
+                status="success",
+                information=f"[vector_database] Connected to Qdrant collection: {collection_name}"
+            )
+        )
 
         # Set search strategy.
-        self.database.distance_strategy = DistanceStrategy.COSINE
+        database.distance_strategy = DistanceStrategy.COSINE
 
-        # Set a time stamp to highlight the most recently updated information.
-        self.time_stamper:              str = datetime.now(tz=ZoneInfo(key="Australia/Sydney")).strftime(format="%B, %Y")
+        return database
 
 
     def similarity_search_with_relevance_scores(
