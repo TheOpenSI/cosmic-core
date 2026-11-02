@@ -2,11 +2,13 @@
 import os
 from pathlib import Path
 from glob import glob
+from threading import Lock
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_qdrant import QdrantVectorStore
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.embeddings import Embeddings
 from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_community.document_loaders import PyPDFLoader
 from qdrant_client import QdrantClient, models
@@ -275,7 +277,7 @@ class VectorDatabase(ServiceBase):
         database: QdrantVectorStore = QdrantVectorStore(
             client=client,
             collection_name=collection_name,
-            embedding=embedding
+            embedding=LastQueryCachedEmbeddings(embeddings=embedding)
         )
 
         print(
@@ -717,3 +719,64 @@ class VectorDatabase(ServiceBase):
             )
 
             return 0
+
+
+class LastQueryCachedEmbeddings(Embeddings):
+    def __init__(
+        self,
+        embeddings: Embeddings
+    ) -> None:
+        """
+        Embeddings that reuse the vector of the most recent query.
+
+        One question is searched in up to two passes (attached file, then the
+        knowledge base), each embedding the same text; the second pass is served
+        from here. Documents are always embedded fresh.
+
+        Args:
+            embeddings (Embeddings): embedding model to wrap.
+        """
+        self._embeddings:   Embeddings                      = embeddings
+        self._last_query:   tuple[str, list[float]] | None  = None
+        self._lock:         Lock                            = Lock()
+
+
+    def embed_documents(
+        self,
+        texts: list[str]
+    ) -> list[list[float]]:
+        """
+        Embed documents with the wrapped model.
+
+        Args:
+            texts (list[str]): texts to embed.
+
+        Returns:
+            embeddings (list[list[float]]): one embedding per text.
+        """
+        return self._embeddings.embed_documents(texts)
+
+
+    def embed_query(
+        self,
+        text: str
+    ) -> list[float]:
+        """
+        Embed a query, reusing the vector when it repeats the previous query.
+
+        Args:
+            text (str): query to embed.
+
+        Returns:
+            embedding (list[float]): embedding of the query.
+        """
+        with self._lock:
+            if self._last_query and self._last_query[0] == text:
+                return self._last_query[1]
+
+        embedding: list[float] = self._embeddings.embed_query(text)
+
+        with self._lock:
+            self._last_query = (text, embedding)
+
+        return embedding
