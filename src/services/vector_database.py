@@ -5,6 +5,10 @@ from glob import glob
 from threading import Lock
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from qdrant_client.models import (
+    Modifier,
+    SparseVectorParams
+)
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_qdrant import QdrantVectorStore
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -29,6 +33,13 @@ TITLE_PREFIXED_KEY: str = "title_prefixed"
 
 
 class VectorDatabase(ServiceBase):
+    # Name of the BM25 sparse vector in a hybrid collection.
+    SPARSE_VECTOR_NAME: str = "sparse"
+
+    # FastEmbed model that encodes text as BM25 sparse vectors.
+    BM25_MODEL_NAME: str = "Qdrant/bm25"
+
+
     def __init__(
         self,
         device: str = "cuda",
@@ -229,6 +240,90 @@ class VectorDatabase(ServiceBase):
 
 
     @staticmethod
+    def sparse_vectors_config() -> dict[str, SparseVectorParams]:
+        """
+        Sparse vector config of a hybrid collection.
+
+        The IDF modifier makes Qdrant weight rare terms above common ones at
+        query time, which turns the stored term frequencies into BM25 scores.
+
+        Returns:
+            sparse_vectors_config (dict[str, SparseVectorParams]): config by vector name.
+        """
+        return {
+            VectorDatabase.SPARSE_VECTOR_NAME: SparseVectorParams(modifier=Modifier.IDF)
+        }
+
+
+    @staticmethod
+    def _hybrid_store_kwargs(
+        client: QdrantClient,
+        collection_name: str,
+        use_hybrid_search: bool
+    ) -> dict[str, Any]:
+        """
+        Vector store arguments for hybrid (dense + BM25) search.
+
+        Search fuses dense and BM25 results with Reciprocal Rank Fusion inside
+        Qdrant, and new documents get their BM25 vector when they are added.
+        Qdrant cannot add a sparse vector to an existing collection with an
+        unnamed dense vector, so an older collection stays dense-only until it is
+        copied with `scripts/migrations/migrate_to_hybrid_collection.py`.
+
+        Args:
+            client (QdrantClient): Qdrant client.
+            collection_name (str): collection to search.
+            use_hybrid_search (bool): RAG_HYBRID_ENABLED is set.
+
+        Returns:
+            store_kwargs (dict[str, Any]): extra `QdrantVectorStore` arguments;
+                empty for dense-only search.
+        """
+        store_kwargs: dict[str, Any] = {}
+
+        if not use_hybrid_search:
+            return store_kwargs
+
+        sparse_vectors: dict[str, Any] = (
+            client.get_collection(collection_name=collection_name).config.params.sparse_vectors or {}
+        )
+
+        if VectorDatabase.SPARSE_VECTOR_NAME not in sparse_vectors:
+            print(
+                set_color(
+                    status="warning",
+                    information=(
+                        f"[vector_database] Collection '{collection_name}' has no BM25 vector; "
+                        f"using dense search. Run scripts/migrations/migrate_to_hybrid_collection.py to enable hybrid search."
+                    )
+                )
+            )
+
+            return store_kwargs
+
+        # Deferred import: FastEmbed is only needed for hybrid search.
+        from langchain_qdrant import (
+            FastEmbedSparse,
+            RetrievalMode
+        )
+
+        store_kwargs = {
+            "retrieval_mode":       RetrievalMode.HYBRID,
+            "sparse_embedding":     FastEmbedSparse(model_name=VectorDatabase.BM25_MODEL_NAME),
+            "sparse_vector_name":   VectorDatabase.SPARSE_VECTOR_NAME
+        }
+
+        print(
+            set_color(
+                status="success",
+                information=f"[vector_database] Hybrid search (dense + BM25) enabled on '{collection_name}'."
+            )
+        )
+
+        return store_kwargs
+
+
+    @staticmethod
     def _connect_vector_store(
         embedding: HuggingFaceEmbeddings
     ) -> QdrantVectorStore:
@@ -244,7 +339,8 @@ class VectorDatabase(ServiceBase):
             database (QdrantVectorStore): vector store over the collection.
         """
         qdrant_url: str = os.getenv("QDRANT_URL", "http://qdrant:6333")
-        collection_name: str = "cosmic_collection"
+        collection_name: str = os.getenv("QDRANT_COLLECTION", "cosmic_collection")
+        use_hybrid_search: bool = os.getenv("RAG_HYBRID_ENABLED", "false").strip().lower() == "true"
 
         print(
             set_color(
@@ -264,6 +360,11 @@ class VectorDatabase(ServiceBase):
                 vectors_config=models.VectorParams(
                     size=embedding_dim,
                     distance=models.Distance.COSINE
+                ),
+                sparse_vectors_config=(
+                    VectorDatabase.sparse_vectors_config()
+                    if use_hybrid_search
+                    else None
                 )
             )
 
@@ -276,6 +377,11 @@ class VectorDatabase(ServiceBase):
 
         database: QdrantVectorStore = QdrantVectorStore(
             client=client,
+            **VectorDatabase._hybrid_store_kwargs(
+                client=client,
+                collection_name=collection_name,
+                use_hybrid_search=use_hybrid_search
+            ),
             collection_name=collection_name,
             embedding=LastQueryCachedEmbeddings(embeddings=embedding)
         )
