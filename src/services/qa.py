@@ -30,6 +30,7 @@ from .attachment_context import (
 from ...modules.code_generation.code_generation import CodeGenerator
 from .system_information_service import SystemInformationService
 from .fallback_service import FallbackService
+from ..maps import GENERAL_SERVICE_ID
 from ...utils.log_tool import set_color
 
 
@@ -38,7 +39,7 @@ DOCUMENT_QA_PERSONA: str = "document_qa"
 
 # Services without a persona of their own: the general service and the
 # forced route used when a file is attached to an unsure query.
-GENERIC_SERVICE_IDS: tuple[str, ...] = ("4", "rag_fallback")
+GENERIC_SERVICE_IDS: tuple[str, ...] = (GENERAL_SERVICE_ID, "rag_fallback")
 
 # Closing line of the block written by `build_context_from_chat_history()`.
 CHAT_HISTORY_END_MARKER: str = "End of Chat History"
@@ -860,14 +861,24 @@ class QABase(ServiceBase):
         # cut down to just "name" of the services not its "desc"
         services_name: dict[str, str] = self._get_services_name(services=services)
 
+        # Give the analyser the chat history so follow-up questions are routed
+        # by what they refer to.
+        routing_chat_history: str = (
+            self._split_chat_history_context(context=context)[0]
+            if isinstance(context, str)
+            else ""
+        )
+
         # Get service option & minimal extra info about selected service through
         # `query_analyser.py`.
         (
             service_option,
             service_info_dict
         ) = self.query_analyser(
-            query=query,        # pyright: ignore[reportCallIssue]
-            services=services   # pyright: ignore[reportCallIssue]
+            query=query,                                # pyright: ignore[reportCallIssue]
+            services=services,                          # pyright: ignore[reportCallIssue]
+            chat_history=routing_chat_history,          # pyright: ignore[reportCallIssue]
+            file_names=file_refs                        # pyright: ignore[reportCallIssue]
         )
 
         # Files the question is about: attached this turn, or attached earlier
