@@ -10,6 +10,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_community.document_loaders import PyPDFLoader
 from qdrant_client import QdrantClient, models
+from langchain_core.documents import Document
 
 
 ### Type hints ###
@@ -19,6 +20,10 @@ from typing import Any
 ### Internal modules ###
 from ...utils.log_tool import set_color
 from .base import ServiceBase
+
+
+# Metadata flag on chunks stored with a "<title>: " prefix.
+TITLE_PREFIXED_KEY: str = "title_prefixed"
 
 
 class VectorDatabase(ServiceBase):
@@ -70,7 +75,12 @@ class VectorDatabase(ServiceBase):
             )
 
         # Build the document splitter, the embedding model and the vector store.
-        self.document_splitter: RecursiveCharacterTextSplitter = VectorDatabase._build_document_splitter()
+        # Chunk size and overlap are counted in tokens of the embedding model.
+        self.document_splitter: RecursiveCharacterTextSplitter = VectorDatabase._build_document_splitter(
+            model_name=VectorDatabase._resolve_embedding_model_name(),
+            chunk_size=int(os.getenv("RAG_CHUNK_SIZE", "256")),
+            chunk_overlap=int(os.getenv("RAG_CHUNK_OVERLAP", "32"))
+        )
 
         self.database_update_embedding: HuggingFaceEmbeddings = VectorDatabase._build_embeddings(
             model_name=VectorDatabase._resolve_embedding_model_name(),
@@ -104,26 +114,85 @@ class VectorDatabase(ServiceBase):
 
 
     @staticmethod
-    def _build_document_splitter() -> RecursiveCharacterTextSplitter:
+    def _build_document_splitter(
+        model_name: str,
+        chunk_size: int,
+        chunk_overlap: int
+    ) -> RecursiveCharacterTextSplitter:
         """
-        Build the splitter that cuts a document into chunks.
+        Build a hybrid token-aware splitter for documents.
+
+        Two limits apply together. The separators split at paragraph, sentence,
+        clause and then word boundaries, so chunks keep whole language units. The
+        size limit is counted in tokens of the embedding model, so no chunk
+        exceeds its context window (gte-small has 512 tokens; 256 leaves room for
+        a query prefix in asymmetric search).
+
+        When the tokenizer cannot be loaded (offline, or first boot before the
+        download), a character splitter is used instead so the service still
+        starts, with limits of about 5 characters per token.
+
+        Args:
+            model_name (str): Hugging Face name of the embedding model.
+            chunk_size (int): maximum tokens per chunk.
+            chunk_overlap (int): tokens shared by neighbouring chunks.
 
         Returns:
             document_splitter (RecursiveCharacterTextSplitter): splitter for documents.
         """
-        MARKDOWN_SEPARATORS: list[str] = [
+        # Coarse structural breaks come first, so finer splits are only used
+        # when a passage exceeds the token budget.
+        SEMANTIC_SEPARATORS: list[str] = [
             "\n\n",
             "\n",
+            ". ",
+            "! ",
+            "? ",
+            "; ",
+            ", ",
+            " ",
             ""
         ]
 
-        return RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=100,
-            add_start_index=True,
-            strip_whitespace=True,
-            separators=MARKDOWN_SEPARATORS
-        )
+        document_splitter: RecursiveCharacterTextSplitter
+
+        try:
+            # Deferred import: transformers is heavy and only needed here.
+            from transformers import AutoTokenizer
+
+            document_splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
+                tokenizer=AutoTokenizer.from_pretrained(model_name),
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                add_start_index=True,
+                strip_whitespace=True,
+                separators=SEMANTIC_SEPARATORS
+            )
+
+            print(
+                set_color(
+                    status="info",
+                    information=f"[vector_database] Hybrid token-aware chunking: {chunk_size} / {chunk_overlap} tokens ({model_name} tokenizer)"
+                )
+            )
+
+        except Exception as exc:
+            print(
+                set_color(
+                    status="warning",
+                    information=f"[vector_database] Token-aware splitter init failed ({exc}); using character fallback."
+                )
+            )
+
+            document_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=chunk_size * 5,
+                chunk_overlap=chunk_overlap * 5,
+                add_start_index=True,
+                strip_whitespace=True,
+                separators=SEMANTIC_SEPARATORS
+            )
+
+        return document_splitter
 
 
     @staticmethod
@@ -222,18 +291,87 @@ class VectorDatabase(ServiceBase):
         return database
 
 
+    @staticmethod
+    def _title_enrich(
+        chunks: list[Document]
+    ) -> list[Document]:
+        """
+        Prepend the document title to each chunk before it is embedded.
+
+        Embedding a chunk as "<title>: <body>" anchors the dense vector to its
+        source document, which helps when the query names the document. The
+        stored text carries the prefix too (the vector store embeds what it
+        stores), so `TITLE_PREFIXED_KEY` marks it for `_strip_title()`.
+
+        Args:
+            chunks (list[Document]): chunks of one or more documents.
+
+        Returns:
+            enriched (list[Document]): chunks with the title prepended; chunks
+                without a title are returned unchanged.
+        """
+        enriched: list[Document] = []
+
+        for chunk in chunks:
+            title: str = str(chunk.metadata.get("title", "")).strip()
+
+            if title and not chunk.page_content.startswith(title):
+                enriched.append(
+                    Document(
+                        page_content=f"{title}: {chunk.page_content}",
+                        metadata={**chunk.metadata, TITLE_PREFIXED_KEY: True}
+                    )
+                )
+
+            else:
+                enriched.append(chunk)
+
+        return enriched
+
+
+    @staticmethod
+    def _strip_title(
+        doc: Document
+    ) -> Document:
+        """
+        Remove the title prefix added by `_title_enrich()`, so the LLM context
+        does not repeat the title in every chunk.
+
+        Args:
+            doc (Document): retrieved chunk.
+
+        Returns:
+            doc (Document): chunk with its plain body text.
+        """
+        prefix: str = f"{doc.metadata.get('title', '')}: "
+
+        if doc.metadata.get(TITLE_PREFIXED_KEY) and doc.page_content.startswith(prefix):
+            doc.page_content = doc.page_content[len(prefix):]
+
+        return doc
+
+
     def similarity_search_with_relevance_scores(
         self,
-        *args,
-        **kwargs
-    ):
+        *args: Any,
+        **kwargs: Any
+    ) -> list[tuple[Document, float]]:
         """
         Retriever from the vector database.
 
         Returns:
-            context (str): retrieved information.
+            retrieved (list[tuple[Document, float]]): (chunk, relevance score)
+                pairs, with title prefixes removed from the chunk text.
         """
-        return self.database.similarity_search_with_relevance_scores(*args, **kwargs)
+        retrieved: list[tuple[Document, float]] = self.database.similarity_search_with_relevance_scores(
+            *args,
+            **kwargs
+        )
+
+        return [
+            (VectorDatabase._strip_title(doc=doc), score)
+            for (doc, score) in retrieved
+        ]
 
 
     def rerank(self, query: str, texts: list[str]) -> list[float]:
@@ -381,8 +519,9 @@ class VectorDatabase(ServiceBase):
 
             # Obtain new knowledge from the splitted tokens.
             if len(document_processed) > 0:  # for invalid pdf such as a scanned .pdf
+                # Embed each chunk with its document title (see `_title_enrich()`).
                 # Qdrant handles persistence automatically; no explicit save is needed.
-                self.database.add_documents(document_processed)
+                self.database.add_documents(VectorDatabase._title_enrich(chunks=document_processed))
 
                 print(
                     set_color(
