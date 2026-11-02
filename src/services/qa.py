@@ -3,6 +3,7 @@ from datetime import (
     datetime,
     timezone
 )
+from os import getenv
 from pathlib import Path
 import uuid
 
@@ -43,6 +44,24 @@ GENERIC_SERVICE_IDS: tuple[str, ...] = (GENERAL_SERVICE_ID, "rag_fallback")
 
 # Closing line of the block written by `build_context_from_chat_history()`.
 CHAT_HISTORY_END_MARKER: str = "End of Chat History"
+
+# Closing line of the block written by `build_context_from_chat_history()`.
+CHAT_HISTORY_END_MARKER: str = "End of Chat History"
+
+# Instruction for turning a follow-up question into a standalone search query.
+QUERY_REWRITE_PROMPT: str = (
+    "Rewrite the user's latest question as a standalone search query, using the "
+    "conversation only to resolve references such as 'it', 'that' or 'the previous "
+    "one'. Keep names, codes and terms exactly as written. If the question is "
+    "already standalone, return it unchanged. Return only the query, without "
+    "an answer or an explanation."
+)
+
+# Prior messages (user and assistant) given to the query rewrite.
+QUERY_REWRITE_HISTORY_MESSAGES: int = 6
+
+# Longest rewrite accepted; anything longer is likely an answer, not a query.
+QUERY_REWRITE_MAX_CHARS: int = 500
 
 
 class QABase(ServiceBase):
@@ -671,6 +690,84 @@ class QABase(ServiceBase):
         )
 
 
+    def _rewrite_follow_up(
+        self,
+        query: str,
+        history_messages: list[dict[str, str]] | None
+    ) -> tuple[str, int, int]:
+        """
+        Rewrite a follow-up question into a standalone query for retrieval.
+
+        A follow-up such as "what about its committees?" cannot be matched
+        against the vector database on its own, so the LLM resolves what it
+        refers to from the recent turns. The answer is still generated from the
+        original question. Turned off with `RAG_QUERY_REWRITE=false`.
+
+        Args:
+            query (str): the question.
+            history_messages (list[dict[str, str]] | None): prior user and assistant turns.
+
+        Returns:
+            retrieval_query (str): standalone query, or `query` when there is no
+                history, rewriting is off, or the rewrite fails.
+            input_token (int): input tokens of the rewrite call.
+            output_token (int): output tokens of the rewrite call.
+        """
+        retrieval_query:    str = query
+        input_token:        int = 0
+        output_token:       int = 0
+
+        is_enabled: bool = getenv("RAG_QUERY_REWRITE", "true").strip().lower() == "true"
+
+        if not history_messages or not is_enabled:
+            return (
+                retrieval_query,
+                input_token,
+                output_token
+            )
+
+        messages: list[dict[str, str]] = [
+            {"role": "system", "content": QUERY_REWRITE_PROMPT},
+            *history_messages[-QUERY_REWRITE_HISTORY_MESSAGES:],
+            {"role": "user", "content": f"Latest question: {query}"}
+        ]
+
+        # Broad catch: a failed rewrite must never block the answer.
+        try:
+            (
+                rewritten,
+                input_token,
+                output_token
+            ) = self.llm.chat_messages(messages=messages)
+
+            rewritten = rewritten.strip().strip("\"'")
+
+            if rewritten and len(rewritten) <= QUERY_REWRITE_MAX_CHARS:
+                retrieval_query = rewritten
+
+        except Exception as exc:
+            print(
+                set_color(
+                    status="warning",
+                    information=f"[qa] Query rewrite skipped: {exc}"
+                )
+            )
+
+        if retrieval_query != query:
+            print(
+                set_color(
+                    status="info",
+                    information=f"[qa] Retrieval query rewritten: '{query}' -> '{retrieval_query}'"
+                )
+            )
+
+        return (
+            retrieval_query,
+            input_token,
+            output_token
+        )
+
+
     def _retrieve_rag_context(
         self,
         query: str,
@@ -681,6 +778,7 @@ class QABase(ServiceBase):
         memory_service_active: bool,
         attachment: AttachmentContext,
         kb_service_name: str | None,
+        retrieval_query: str | None = None
     ) -> tuple[str, str | dict, float | int, str, list[dict[str, Any]], bool]:
         """
         Retrieve RAG context for the query and fold it into `context`.
@@ -703,6 +801,9 @@ class QABase(ServiceBase):
 
             kb_service_name (str | None): memory-capable service the query was
                 routed to, if any.
+
+            retrieval_query (str | None, optional): query used to search the vector
+                database instead of `query` (see `_rewrite_follow_up()`). Defaults to None.
 
         Returns:
             user_prompt (str): prompt built from the query and non-history context.
@@ -732,7 +833,7 @@ class QABase(ServiceBase):
             retrieved_context_score,
             retrieved_sources
         ) = self._retrieve_context(
-            query = query,
+            query = retrieval_query or query,
             attachment = attachment,
             user_id = user_id,
             session_id = session_id,
@@ -982,6 +1083,19 @@ class QABase(ServiceBase):
                     else (None)
                 )
 
+                # Search with a standalone version of a follow-up question.
+                (
+                    retrieval_query,
+                    rewrite_input_token,
+                    rewrite_output_token
+                ) = self._rewrite_follow_up(
+                    query=query,
+                    history_messages=history_messages
+                )
+
+                service_info_dict["input_token"]    += rewrite_input_token
+                service_info_dict["output_token"]   += rewrite_output_token
+
                 (
                     user_prompt,
                     context,
@@ -990,6 +1104,7 @@ class QABase(ServiceBase):
                     retrieved_sources,
                     answered_from_file
                 ) = self._retrieve_rag_context(
+                    retrieval_query = retrieval_query,
                     query = query,
                     context = context,
                     user_id = user_id,

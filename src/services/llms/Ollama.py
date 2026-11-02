@@ -191,6 +191,33 @@ class Ollama(LLMBase):
         )
 
 
+    def chat_messages(
+        self,
+        messages: list[dict[str, str]]
+    ) -> tuple[str, int, int]:
+        """
+        Send ready-made chat messages to Ollama, without the prompters.
+
+        Args:
+            messages (list[dict[str, str]]): {"role": ..., "content": ...} entries.
+
+        Returns:
+            response (str): LLM response.
+            input_token (int): input tokens of the call.
+            output_token (int): output tokens of the call.
+        """
+        chat_response: ChatResponse = self.ollama_client.chat(
+            model=self.llm_name,
+            messages=messages
+        )
+
+        return (
+            chat_response["message"]["content"],
+            chat_response["prompt_eval_count"],
+            chat_response["eval_count"]
+        )
+
+
     def quit(self) -> None:
         """
         Clean up any resources. No specific cleanup needed for API-based implementation.

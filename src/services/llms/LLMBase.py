@@ -261,6 +261,28 @@ class LLMBase(ServiceBase):
         return response
 
 
+    def chat_messages(
+        self,
+        messages: list[dict[str, str]]
+    ) -> tuple[str, int, int]:
+        """
+        Send ready-made chat messages to the LLM, without the user and system
+        prompters (for short helper calls such as query rewriting).
+
+        Args:
+            messages (list[dict[str, str]]): {"role": ..., "content": ...} entries.
+
+        Returns:
+            response (str): LLM response.
+            input_token (int): input tokens of the call.
+            output_token (int): output tokens of the call.
+
+        Raises:
+            NotImplementedError: the LLM backend does not support it.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not support chat_messages().")
+
+
     def __call__(
         self,
         question: str,
