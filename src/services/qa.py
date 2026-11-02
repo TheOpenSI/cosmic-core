@@ -22,6 +22,9 @@ from .attachment_context import (
     AttachmentResolver,
     MISSING_FILE_LLM_NOTE,
     MISSING_FILE_USER_NOTE,
+    SESSION_FILE_LIST_ROUTE,
+    UNPLACED_SERVICE_IDS,
+    session_file_list_answer,
     unused_file_note
 )
 from ...modules.code_generation.code_generation import CodeGenerator
@@ -111,6 +114,63 @@ class QABase(ServiceBase):
             dict[str, str]: Dictionary mapping service IDs to their names.
         """
         return {service_id: service_info["name"] for service_id, service_info in services.items()}
+
+
+    @staticmethod
+    def _route_session_files(
+        service_option: str,
+        attachment: AttachmentContext,
+        attachment_resolver: AttachmentResolver,
+        user_id: str | None,
+        session_id: str | None
+    ) -> str:
+        """
+        Route questions about the files shared earlier in the chat session.
+
+        "Which files did I share?" is answered from the session index. A
+        question the query analyser could not place (system information or
+        fallback) in a session with files is most likely a follow-up about those
+        files ("biomedical research data?"), so it searches them instead,
+        unless it is about the assistant itself.
+
+        Args:
+            service_option (str): service selected by the query analyser.
+            attachment (AttachmentContext): resolved files of the question; its
+                target files are set to the session's files when rerouted.
+            attachment_resolver (AttachmentResolver): looks up the session's files.
+            user_id (str | None): owner of the session.
+            session_id (str | None): chat session.
+
+        Returns:
+            service_option (str): `SESSION_FILE_LIST_ROUTE`, or the unchanged
+                option (the force route then sends session-file follow-ups to
+                retrieval).
+        """
+        if attachment.asks_for_file_list:
+            return SESSION_FILE_LIST_ROUTE
+
+        if (
+            service_option not in UNPLACED_SERVICE_IDS
+            or attachment.document_ids
+            or attachment.is_system_question
+            or not (user_id and session_id)
+        ):
+            return service_option
+
+        (
+            attachment.document_ids,
+            attachment.file_names
+        ) = attachment_resolver.get_session_files(user_id, session_id)
+
+        if attachment.document_ids:
+            print(
+                set_color(
+                    status="info",
+                    information=f"[qa] Unplaced follow-up in a session with files; searching {attachment.file_names}."
+                )
+            )
+
+        return service_option
 
 
     def _force_route_check(
@@ -812,12 +872,21 @@ class QABase(ServiceBase):
 
         # Files the question is about: attached this turn, or attached earlier
         # in the session when the question points at "the file".
-        attachment: AttachmentContext = AttachmentResolver(self.rag.vector_database)(
+        attachment_resolver: AttachmentResolver = AttachmentResolver(self.rag.vector_database)
+        attachment: AttachmentContext = attachment_resolver(
             query = query,
             file_refs = file_refs,
             has_files = has_files,
             user_id = user_id,
             session_id = session_id
+        )
+
+        service_option = QABase._route_session_files(
+            service_option=service_option,
+            attachment=attachment,
+            attachment_resolver=attachment_resolver,
+            user_id=user_id,
+            session_id=session_id
         )
 
         # Check if force route is required.
@@ -826,8 +895,14 @@ class QABase(ServiceBase):
             has_attachment = has_files or bool(attachment.document_ids)
         )
 
+        if service_option == SESSION_FILE_LIST_ROUTE:
+            response        = session_file_list_answer(file_names=attachment.session_file_names)
+            raw_response    = response
+            input_token     = 0
+            output_token    = 0
+
         # TODO: Remove chess service
-        if service_option.startswith("1."):
+        elif service_option.startswith("1."):
             (
                 response,
                 raw_response,
