@@ -10,7 +10,7 @@
 # Directory Hierarchy
 
 ```md
-CoSMIC/
+cosmic-core/
 ├── backend/
 │   ├── cores/                    # Core FastAPI application setup
 │   └── routers/                  # CoSMIC API & non-API endpoints
@@ -62,7 +62,7 @@ Before setting up, decide which one is the correct purpose when you get to this 
 
 > [!NOTE]
 > The rest of this guide covers **Purpose 1**. For **Purpose 2**, refer to the
-> setup instructions in [CoSMIC_Docker](https://github.com/TheOpenSI/CoSMIC_Docker) repository.
+> setup instructions in [cosmic-docker](https://github.com/TheOpenSI/cosmic-docker) repository.
 
 1. **Module-only**: you are working on this part of the project in isolation (e.g., only **CoSMIC**).
 2. **Full-stack**: you need an end-to-end test run across all services (**Frontend &rarr; Backend &rarr; CoSMIC**).
@@ -85,24 +85,24 @@ Then, start by cloning the repository using your preferred method:
 
 ```bash
 # Linux/macOS
-git clone https://github.com/TheOpenSI/CoSMIC.git    # Using HTTPS (recommended for most users)
-git clone git@github.com:TheOpenSI/CoSMIC.git        # Using SSH (recommended if you have SSH keys configured)
+git clone https://github.com/TheOpenSI/cosmic-core.git    # Using HTTPS (recommended for most users)
+git clone git@github.com:TheOpenSI/cosmic-core.git        # Using SSH (recommended if you have SSH keys configured)
 ```
 ```ps1
 # Windows
-git clone https://github.com/TheOpenSI/CoSMIC.git    # Using HTTPS (recommended for most users)
-git clone git@github.com:TheOpenSI/CoSMIC.git        # Using SSH (recommended if you have SSH keys configured)
+git clone https://github.com/TheOpenSI/cosmic-core.git    # Using HTTPS (recommended for most users)
+git clone git@github.com:TheOpenSI/cosmic-core.git        # Using SSH (recommended if you have SSH keys configured)
 ```
 
 Once cloned, navigate to the project root directory:
 
 ```bash
 # Linux/macOS
-cd CoSMIC/
+cd cosmic-core/
 ```
 ```ps1
 # Windows
-Set-Location CoSMIC\
+Set-Location cosmic-core\
 ```
 
 ---
@@ -180,8 +180,8 @@ $env:OLLAMA_SERVICE_NAME="<any name>"
 > [!IMPORTANT]
 > Before following either setup you have chosen from above instruction, ensure
 > that our **backend & database** are available before **CoSMIC** since all API
-> endpoints called within the codebase are coming from [CoSMIC_DB](https://github.com/TheOpenSI/CoSMIC_DB)
-> repository. Refer to the [setup guide](https://github.com/TheOpenSI/CoSMIC_DB/blob/main/README.md)
+> endpoints called within the codebase are coming from [cosmic-db](https://github.com/TheOpenSI/cosmic-db)
+> repository. Refer to the [setup guide](https://github.com/TheOpenSI/cosmic-db/blob/main/README.md)
 > from linked repository for more details.
 
 > [!TIP]
@@ -231,7 +231,7 @@ docker compose up --build -d # Docker run through lightweight Linux VM on Window
 > [!NOTE]
 > On the first run, Ollama will automatically pull the default model pre-defined
 > in our configuration, which is fetched from **Configurations API** endpoint in
-> [CoSMIC_DB](https://github.com/TheOpenSI/CoSMIC_DB) repo. This may take a while depending on your connection speed.
+> [cosmic-db](https://github.com/TheOpenSI/cosmic-db) repo. This may take a while depending on your connection speed.
 
 ```bash
 # Linux/MacOS
@@ -289,7 +289,7 @@ uv sync --frozen --no-cache
 > [!NOTE]
 > On the first run, Ollama will automatically pull the default model pre-defined
 > in our configuration, which is fetched from **Configurations API** endpoint in
-> [CoSMIC_DB](https://github.com/TheOpenSI/CoSMIC_DB) repo. This may take a while depending on your connection speed.
+> [cosmic-db](https://github.com/TheOpenSI/cosmic-db) repo. This may take a while depending on your connection speed.
 
 If using a local model, pull it before starting the server:
 
@@ -327,7 +327,7 @@ uv run fastapi dev
 
 # Framework
 
-**CoSMIC** routes every incoming query through an [SLM-based Query Analyser](src/query_analyser/query_analyser.py) that selects the most relevant service. Its configuration is fetched dynamically from the **Configurations API** endpoint in [CoSMIC_DB](https://github.com/TheOpenSI/CoSMIC_DB) repository. This allows our product to stay in sync with the latest settings without requiring a restart or redeploy.
+**CoSMIC** routes every incoming query through an [SLM-based Query Analyser](src/query_analyser/query_analyser.py) that selects the most relevant service. Its configuration is fetched dynamically from the **Configurations API** endpoint in [cosmic-db](https://github.com/TheOpenSI/cosmic-db) repository. This allows our product to stay in sync with the latest settings without requiring a restart or redeploy.
 
 Currently, **CoSMIC** provides 5 core services, each discoverable via the **Services API** endpoint within the same repository:
 
@@ -378,7 +378,7 @@ For project support, please contact:
 
 We welcome any contributions from the community no matter if you are researchers, developers, and enthusiasts:
 
-- **Report issues**: found a bug or have a feature request? Open an issue on our [GitHub page](https://github.com/TheOpenSI/CoSMIC/issues)
+- **Report issues**: found a bug or have a feature request? Open an issue on our [GitHub page](https://github.com/TheOpenSI/cosmic-core/issues)
 - **Submit pull requests**: please follow our [contribution guidelines](./CONTRIBUTING)
 - **Make a donation**: support the project [here](https://payments.canberra.edu.au/Misc/tran?tran-type=OPENSI)
 

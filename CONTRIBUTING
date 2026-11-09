@@ -6,13 +6,13 @@ We suggest users follow [the standard guidelines](https://git-scm.com/book/en/v2
 These include
 
 - Fork our project.
-- Create a topic branch from [release](https://github.com/TheOpenSI/CoSMIC/tree/release).
+- Create a topic branch from [release](https://github.com/TheOpenSI/cosmic-core/tree/release).
 - Make some commits, either fixing a bug or adding a new service, to improve the project.
 - Push this topic branch to your GitHub project.
 - Open a Pull Request on GitHub.
 - Discuss, and optionally continue committing.
 - We will merge or close the Pull Request.
-- Sync our updated [release](https://github.com/TheOpenSI/CoSMIC/tree/release) back to your fork.
+- Sync our updated [release](https://github.com/TheOpenSI/cosmic-core/tree/release) back to your fork.
 
 ## Raise an Issue
 
