@@ -81,16 +81,16 @@ services:
         source: cosmic-fastapi-venv
         target: /app/.venv
     ports:
-      - name: cosmic-uvicorn
-        target: 3000
+      - name: cosmic-fastapi-uvicorn
+        target: 8000
         host_ip: 127.0.0.1
-        published: "3000"
+        published: "8001" # NOTE: prevent port conflicts with `cosmic-db` repo
         protocol: tcp
         app_protocol: http
         mode: host
       # NOTE:
       # For using debugger during development. Remove this during production.
-      - name: cosmic-debugpy
+      - name: cosmic-fastapi-debugpy
         target: 5678
         host_ip: 127.0.0.1
         published: "5678"

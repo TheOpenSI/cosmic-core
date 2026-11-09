@@ -23,4 +23,4 @@ EXPOSE 3000/tcp
 # There's a known issue about ANSI escape codes output to terminal when running
 # with `fastapi dev` under some conditions (https://github.com/fastapi/fastapi/discussions/13866).
 # Therefore, until the CLI maintainer patched this, we'll be using `uvicorn` CLI directly.
-CMD [ ".venv/bin/uvicorn", "--app-dir", "/", "--host", "0.0.0.0", "--port", "3000", "--reload", "app.api:cosmic_app" ]
+CMD [ ".venv/bin/uvicorn", "--app-dir", "/", "--host", "0.0.0.0", "--port", "8000", "--reload", "app.api:cosmic_app" ]
