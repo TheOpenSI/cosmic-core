@@ -88,8 +88,8 @@ class LLMBase(ServiceBase):
         elif llm_name.find("ollama") > -1:
             llm_instance_name = "Ollama"
 
-        ## CK: It seems this is the defult case even when using Ollama integration, 
-        # since the model is still GPT-based. 
+        ## CK: It seems this is the defult case even when using Ollama integration,
+        # since the model is still GPT-based.
         # We can further specify the LLM type when we have more LLM types integrated.
         else:
             llm_instance_name = "GPT"
@@ -295,10 +295,10 @@ class LLMBase(ServiceBase):
 
         # Merge user prompt to system prompt by LLM type.
 
-        ##here is where I call the system prompter to merge the user 
+        ##here is where I call the system prompter to merge the user
         # prompt and context into a system prompt that can be fed into the LLM.
-        # I need to be able to specify the service for which to set the prompter, 
-        # since different services may have different system prompts. only if 
+        # I need to be able to specify the service for which to set the prompter,
+        # since different services may have different system prompts. only if
         # the Instance is GPT
 
         system_prompt: str = self.system_prompter(

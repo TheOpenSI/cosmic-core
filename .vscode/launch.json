@@ -1,39 +1,39 @@
 {
-	"$schema": "https://raw.githubusercontent.com/mfussenegger/dapconfig-schema/master/dapconfig-schema.json",
-	"version": "0.2.0",
-	"configurations": [
-		{
-			"name": "Attach `debugpy` to CoSMIC Docker container",
-			"type": "python",
-			"request": "attach",
-			"connect": {
-				"host": "127.0.0.1",
-				"port": 5678
-			},
-			"linux": {
-				"pathMappings": [
-					{
-						"localRoot": "${workspaceFolder}",
-						"remoteRoot": "/app"
-					}
-				]
-			},
-			"osx": {
-				"pathMappings": [
-					{
-						"localRoot": "${workspaceFolder}",
-						"remoteRoot": "/app"
-					}
-				]
-			},
-			"windows": {
-				"pathMappings": [
-					{
-						"localRoot": "${workspaceFolder}",
-						"remoteRoot": "/app"
-					}
-				]
-			}
-		}
-	]
+  "$schema": "https://raw.githubusercontent.com/mfussenegger/dapconfig-schema/master/dapconfig-schema.json",
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach `debugpy` to CoSMIC Docker container",
+      "type": "python",
+      "request": "attach",
+      "connect": {
+        "host": "127.0.0.1",
+        "port": 5678
+      },
+      "linux": {
+        "pathMappings": [
+          {
+            "localRoot": "${workspaceFolder}",
+            "remoteRoot": "/app"
+          }
+        ]
+      },
+      "osx": {
+        "pathMappings": [
+          {
+            "localRoot": "${workspaceFolder}",
+            "remoteRoot": "/app"
+          }
+        ]
+      },
+      "windows": {
+        "pathMappings": [
+          {
+            "localRoot": "${workspaceFolder}",
+            "remoteRoot": "/app"
+          }
+        ]
+      }
+    }
+  ]
 }

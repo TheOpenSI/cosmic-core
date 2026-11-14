@@ -68,7 +68,7 @@ class CodeGenerator(ServiceBase):
 
             # Send the user query to the PyCapsule service
             pycaspsule_response: Response = post(
-                f"{self.service_url}/query", 
+                f"{self.service_url}/query",
                 json={"query": query},
                 timeout=timeout
             )

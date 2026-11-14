@@ -91,7 +91,7 @@ class VectorDatabase(ServiceBase):
 
         client = QdrantClient(url=qdrant_url)
 
-        # Check collection exists if not create one 
+        # Check collection exists if not create one
         if not client.collection_exists(collection_name):
             embedding_dim = len(
                 self.database_update_embedding.embed_query("dimension probe")
@@ -363,7 +363,7 @@ class VectorDatabase(ServiceBase):
 
 
     def delete_by_session_id(self, session_id: str) -> int:
-        """ 
+        """
         Remove all vector points belonging to a chat session.
         Scoped strictly to `metadata.session_id == session_id`, so other
         sessions' vectors are left untouched. Unlike `delete_by_document_id`,

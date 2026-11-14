@@ -66,7 +66,7 @@ class QueryAnalyserService(UserPromptBase):
             f" Just return which service without any explanations."
             # f" otherwise, if the query is a general knowledge question, then select service 4." \
 
-        return user_prompt   
+        return user_prompt
 
 class QueryAnalyserSystemInfo(QueryAnalyserService):
     def __init__(
