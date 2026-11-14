@@ -122,7 +122,7 @@ async def upload_file(
     content_hash:   str = compute_content_hash(str(file_path))
     file_ext:       str = os.path.splitext(str(file.filename))[1].lower()
 
-    # Embed into the vector database with per-tier metadata 
+    # Embed into the vector database with per-tier metadata
     # so retrieval can be scoped to this user / session
     chunk_count: int = 0
     if (

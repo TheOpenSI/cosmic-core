@@ -322,7 +322,7 @@ class GPT(SystemPromptBase):
         Returns:
             system_prompt (str): system prompt with question and context under LLM query format.
         """
-    
+
         # Compose the system content: base self.prefix + (optional) file content
         prompt_service = self._load_service_prompt(service)
         composed_prefix = self.prefix + (prompt_service if prompt_service else "")
