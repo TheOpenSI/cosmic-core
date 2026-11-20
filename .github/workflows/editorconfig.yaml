@@ -1,0 +1,22 @@
+name: EditorConfig
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up editorconfig-checker
+        uses: editorconfig-checker/action-editorconfig-checker@main
+        with:
+          version: v4.0.2
+      - name: Run editorconfig-checker
+        run: editorconfig-checker

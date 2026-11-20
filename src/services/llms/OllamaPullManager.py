@@ -303,7 +303,7 @@ class OllamaPullManager:
                             total_mb = total / (1024 * 1024)
 
                             print(f"\rProgress: {self._current_percentage:.1f}% "
-                                  f"({completed_mb:.1f}MB/{total_mb:.1f}MB)", 
+                                  f"({completed_mb:.1f}MB/{total_mb:.1f}MB)",
                                   end="", flush=True)
 
                     elif 'success' in status.lower():

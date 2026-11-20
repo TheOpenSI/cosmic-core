@@ -347,6 +347,11 @@ Currently, **CoSMIC** provides 5 core services, each discoverable via the **Serv
 OAuth authentication can be integrated to enhance security and manage user access. For detailed setup instructions, refer to the [OAuth guide](./OAuth.md).
 
 ---
+# Conventions
+
+This repository follows the shared [EditorConfig conventions](docs/conventions/EDITORCONFIG.md). See the [live documentation](https://github.com/TheOpenSI/cosmic-docs/blob/main/docs/06-development/editorconfig.md) for the rules and editor setup.
+
+---
 
 # Reference
 

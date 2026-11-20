@@ -12,20 +12,20 @@ class FallbackService(ServiceBase):
         super().__init__(**kwargs)
 
 
-    def _fix_service_name(self, 
+    def _fix_service_name(self,
                           service_name: str) -> str:
         """
         Fix the service name to be more user-friendly e.g. "service_1" -> "Service 1".
 
         Args:
             service_name (str): the original service name.
-        
+
         Returns:
             fixed_service_name (str): the fixed service name.
         """
         return service_name.replace('_', ' ').title()
 
-    
+
     def _get_service_names(self,
                            services: dict[str, dict[str, str]]) -> str:
         """
@@ -35,7 +35,7 @@ class FallbackService(ServiceBase):
             service_names (str): names of the available services.
         """
         return ", ".join(
-            self._fix_service_name(service.get("name", "undefined_service_name")) 
+            self._fix_service_name(service.get("name", "undefined_service_name"))
             for service in services.values()
             if not "system_information" in service.get("name", "")
         )

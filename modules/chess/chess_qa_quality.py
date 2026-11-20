@@ -77,7 +77,7 @@ class QualityEval(QABase):
         data_info = self.parse_quality_csv(query_csv)
         questions = data_info["question"]
         answers = data_info["answer"]
-    
+
         num_questions = len(questions)
         score_list = []
 

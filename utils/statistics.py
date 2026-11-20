@@ -43,7 +43,7 @@ def update_statistic_table(
 
     current_time: str = str(object=statistic_dict["last_date"])
     time_split: list[str] = current_time.split(
-        sep=",", 
+        sep=",",
         maxsplit=-1
     )[0].split(
         sep="-",
