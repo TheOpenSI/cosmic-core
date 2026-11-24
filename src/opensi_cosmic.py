@@ -861,4 +861,3 @@ class OpenSICoSMIC:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"{httpx_err}"
             )
-

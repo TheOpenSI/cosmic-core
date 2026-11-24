@@ -716,7 +716,7 @@ class VectorDatabase(ServiceBase):
 
 
     def delete_by_session_id(self, session_id: str) -> int:
-        """ 
+        """
         Remove all vector points belonging to a chat session.
         Scoped strictly to `metadata.session_id == session_id`, so other
         sessions' vectors are left untouched. Unlike `delete_by_document_id`,

@@ -95,7 +95,7 @@ class StorageEventHandler(FileSystemEventHandler):
 
     def process_file(self, file_path: str) -> None:
         """Process a single file for indexing.
-        If it has a valid file identifier and is already indexed, compare hashes. 
+        If it has a valid file identifier and is already indexed, compare hashes.
         Skip if unchanged. If changed, reindex.
         """
         rel_path = os.path.relpath(file_path, self.watched_path)

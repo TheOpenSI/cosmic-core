@@ -12,7 +12,7 @@ class Pipeline:
         # WORD_LIMIT: int = Field(title="Word Limit", default=300, description="Word limit when getting page summary")
         # WIKI_ROOT: str = Field(title="Wiki", default="https://en.wikipedia.org/wiki", description="Wikipedia root URL")
         # SOURCE_TYPE: str = Field(title="Source Type", default="Wikipedia", description="Source type for the pipeline", enum=["Wikipedia", "Google", "Custom"])
-    # A class-level dictionary to keep track of user queries. 
+    # A class-level dictionary to keep track of user queries.
     # Key: user_id, Value: number of queries asked.
     user_queries_count = {}
 
@@ -27,7 +27,7 @@ class Pipeline:
         # print("TEST", self.valves.RATE_LIMIT)
 
         self.MAX_QUERIES_PER_USER = int(os.environ.get("MAX_QUERIES_PER_USER", "5"))
-     
+
     # async def on_valves_updated(self):
     #     pass
 
@@ -56,7 +56,7 @@ class Pipeline:
             )
             if response.status_code == 200:
                 return response.json().get("result", "Something went wrong.")
-            
+
             raise Exception(f"Error: {response.status_code}, {response.text}")
         except requests.exceptions.RequestException as e:
             raise Exception(f"Error during /cosmic API call: {e}")
