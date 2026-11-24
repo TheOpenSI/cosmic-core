@@ -208,13 +208,14 @@ class OpenSICoSMIC:
 
     def __call__(
         self,
-        question:   str,
-        context:    str         = "",
-        log_file:   str | None  = None,
-        session_id: str | None  = None,
-        has_files:  bool        = False,
-        user_id:    str | None  = None,
-        file_refs:  list | None = None,
+        question:           str,
+        context:            str                         = "",
+        log_file:           str | None                  = None,
+        session_id:         str | None                  = None,
+        has_files:          bool                        = False,
+        user_id:            str | None                  = None,
+        file_refs:          list[str] | None            = None,
+        history_messages:   list[dict[str, str]] | None = None
     ) -> tuple[str, str, datetime, int, int, float | int]:
         """
         Execute QA.
@@ -228,6 +229,10 @@ class OpenSICoSMIC:
 
             log_file (str, optional):
                 whether to print the result in a .txt file. Defaults to None.
+
+            history_messages (list[dict[str, str]] | None, optional):
+                prior user and assistant turns, sent to the LLM as chat
+                messages. Defaults to None.
 
         Returns:
             response (str):
@@ -423,6 +428,7 @@ class OpenSICoSMIC:
                 query=question,
                 services=self.get_services(), # pyright: ignore[reportArgumentType]
                 context=context, # Chat history context (see `backend/routers/cosmic.py`)
+                history_messages=history_messages,
                 is_rag=True,
                 verbose=False,
                 user_id=call_user_id,

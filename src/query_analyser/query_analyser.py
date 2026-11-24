@@ -11,9 +11,36 @@ from re import search
 ### Internal modules ###
 from ..services.llms import llm as llm_instances
 from ..query_analyser import user_prompt as query_user_prompt_instances
-from ..maps import LLM_INSTANCE_DICT
+from ..maps import (
+    GENERAL_SERVICE_ID,
+    LLM_INSTANCE_DICT
+)
 from ...utils.log_tool import set_color
 from ...utils.module import get_instance
+
+
+# Phrases that mark an explicit request to store something in memory.
+SAVE_MARKERS: tuple[str, ...] = (
+    "remember",
+    "save",
+    "store",
+    "memoris",
+    "memoriz",
+    "add to memory"
+)
+
+# Openings that mark a query as a question rather than a save command.
+QUESTION_STARTS: tuple[str, ...] = tuple(
+    "what which how why who when where whose summar list tell show explain describe give".split()
+) + (
+    "can ",
+    "could ",
+    "do ",
+    "does ",
+    "did ",
+    "is ",
+    "are "
+)
 
 
 
@@ -86,8 +113,10 @@ class QueryAnalyser:
         # NOTE:
         # for legacy purposes. Change to `dict[int, dict[str, str]]` type when
         # update to handle `int` properly
-        services:   dict[str, dict[str, str]],
-        verbose:    bool = False
+        services:       dict[str, dict[str, str]],
+        verbose:        bool                = False,
+        chat_history:   str                 = "",
+        file_names:     list[str] | None    = None
     ) -> tuple[str, dict[str, str | datetime | int | bool | None]]:
         """
         Analyse query to get service option.
@@ -103,6 +132,17 @@ class QueryAnalyser:
             verbose (bool, optional):
                 debug mode. Default to False.
 
+            chat_history (str, optional):
+                recent conversation turns from the current session, so intent is
+                resolved for follow-up questions that only make sense in context
+                ("what about its committees?"). Default to "".
+
+            file_names (list[str], optional):
+                names of files attached to this message. A question about an
+                attached document carries intent the query text alone may not
+                ("summarise this"), and the file name often carries the topic.
+                Default to None.
+
         Returns:
             service_option (str):
                 service option.
@@ -112,8 +152,16 @@ class QueryAnalyser:
         """
         # Set a list of services.
         self.services: dict[str, str] = {
-            service_id: service_info['desc']
+            service_id: service_info["desc"]
             for (service_id, service_info) in services.items()
+        }
+
+        # Pin routing-hint examples in the prompt to the ids the registry
+        # actually assigned, so a disabled service is never hinted at.
+        service_ids_by_name: dict[str, str] = {
+            service_info["name"]: service_id
+            for (service_id, service_info) in services.items()
+            if "name" in service_info
         }
 
         # # There is/are active services from fetched API endpoint
@@ -160,7 +208,8 @@ class QueryAnalyser:
             instances=query_user_prompt_instances,
             instance_name="QueryAnalyserService"
         )(
-            services=self.services
+            services=self.services,
+            service_ids_by_name=service_ids_by_name
         )
 
         # Create an initial information dictionary.
@@ -183,10 +232,22 @@ class QueryAnalyser:
             service_response_timestamp,
             service_input_token,
             service_output_token
-        ) = self.llm(query)
+        ) = self.llm(
+            question=query,
+            context={
+                "chat_history": chat_history,
+                "file_names":   list(file_names or [])
+            }
+        )
 
         # Get the service option.
         service_option: str = self.mapping(response=service_analysis)
+
+        if service_option == "2":
+            service_option = self._guard_memory_route(
+                query=query,
+                has_files=bool(file_names)
+            )
 
         # print(
         #     set_color(
@@ -244,6 +305,44 @@ class QueryAnalyser:
             service_option,
             service_info_dict
         )
+
+
+    def _guard_memory_route(
+        self,
+        query: str,
+        has_files: bool
+    ) -> str:
+        """
+        Keep a question from being routed to the memory-update service.
+
+        The SLM conflates mentions of files with service 2's "update the database
+        with a PDF" description regardless of prompt instructions, which saves the
+        question itself as a memory. Only an explicit save command keeps service 2.
+
+        Args:
+            query (str): question.
+            has_files (bool): a file is attached to this message.
+
+        Returns:
+            service_option (str): "2", or the general service (`GENERAL_SERVICE_ID`, else "-1").
+        """
+        service_option: str = "2"
+        lowered_query: str = query.lower().strip()
+
+        is_save_command: bool = any(marker in lowered_query for marker in SAVE_MARKERS)
+        is_question: bool = lowered_query.endswith("?") or lowered_query.startswith(QUESTION_STARTS)
+
+        if not is_save_command and (is_question or has_files):
+            service_option = GENERAL_SERVICE_ID if GENERAL_SERVICE_ID in self.services else "-1"
+
+            print(
+                set_color(
+                    status="info",
+                    information=f"[query_analyser] Question is not a save command; rerouting service 2 -> {service_option}."
+                )
+            )
+
+        return service_option
 
 
     def quit(self):

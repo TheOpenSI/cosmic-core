@@ -3,6 +3,7 @@ from datetime import (
     datetime,
     timezone
 )
+from os import getenv
 from pathlib import Path
 import uuid
 
@@ -22,11 +23,15 @@ from .attachment_context import (
     AttachmentResolver,
     MISSING_FILE_LLM_NOTE,
     MISSING_FILE_USER_NOTE,
+    SESSION_FILE_LIST_ROUTE,
+    UNPLACED_SERVICE_IDS,
+    session_file_list_answer,
     unused_file_note
 )
 from ...modules.code_generation.code_generation import CodeGenerator
 from .system_information_service import SystemInformationService
 from .fallback_service import FallbackService
+from ..maps import GENERAL_SERVICE_ID
 from ...utils.log_tool import set_color
 
 
@@ -35,7 +40,28 @@ DOCUMENT_QA_PERSONA: str = "document_qa"
 
 # Services without a persona of their own: the general service and the
 # forced route used when a file is attached to an unsure query.
-GENERIC_SERVICE_IDS: tuple[str, ...] = ("4", "rag_fallback")
+GENERIC_SERVICE_IDS: tuple[str, ...] = (GENERAL_SERVICE_ID, "rag_fallback")
+
+# Closing line of the block written by `build_context_from_chat_history()`.
+CHAT_HISTORY_END_MARKER: str = "End of Chat History"
+
+# Closing line of the block written by `build_context_from_chat_history()`.
+CHAT_HISTORY_END_MARKER: str = "End of Chat History"
+
+# Instruction for turning a follow-up question into a standalone search query.
+QUERY_REWRITE_PROMPT: str = (
+    "Rewrite the user's latest question as a standalone search query, using the "
+    "conversation only to resolve references such as 'it', 'that' or 'the previous "
+    "one'. Keep names, codes and terms exactly as written. If the question is "
+    "already standalone, return it unchanged. Return only the query, without "
+    "an answer or an explanation."
+)
+
+# Prior messages (user and assistant) given to the query rewrite.
+QUERY_REWRITE_HISTORY_MESSAGES: int = 6
+
+# Longest rewrite accepted; anything longer is likely an answer, not a query.
+QUERY_REWRITE_MAX_CHARS: int = 500
 
 
 class QABase(ServiceBase):
@@ -108,6 +134,63 @@ class QABase(ServiceBase):
             dict[str, str]: Dictionary mapping service IDs to their names.
         """
         return {service_id: service_info["name"] for service_id, service_info in services.items()}
+
+
+    @staticmethod
+    def _route_session_files(
+        service_option: str,
+        attachment: AttachmentContext,
+        attachment_resolver: AttachmentResolver,
+        user_id: str | None,
+        session_id: str | None
+    ) -> str:
+        """
+        Route questions about the files shared earlier in the chat session.
+
+        "Which files did I share?" is answered from the session index. A
+        question the query analyser could not place (system information or
+        fallback) in a session with files is most likely a follow-up about those
+        files ("biomedical research data?"), so it searches them instead,
+        unless it is about the assistant itself.
+
+        Args:
+            service_option (str): service selected by the query analyser.
+            attachment (AttachmentContext): resolved files of the question; its
+                target files are set to the session's files when rerouted.
+            attachment_resolver (AttachmentResolver): looks up the session's files.
+            user_id (str | None): owner of the session.
+            session_id (str | None): chat session.
+
+        Returns:
+            service_option (str): `SESSION_FILE_LIST_ROUTE`, or the unchanged
+                option (the force route then sends session-file follow-ups to
+                retrieval).
+        """
+        if attachment.asks_for_file_list:
+            return SESSION_FILE_LIST_ROUTE
+
+        if (
+            service_option not in UNPLACED_SERVICE_IDS
+            or attachment.document_ids
+            or attachment.is_system_question
+            or not (user_id and session_id)
+        ):
+            return service_option
+
+        (
+            attachment.document_ids,
+            attachment.file_names
+        ) = attachment_resolver.get_session_files(user_id, session_id)
+
+        if attachment.document_ids:
+            print(
+                set_color(
+                    status="info",
+                    information=f"[qa] Unplaced follow-up in a session with files; searching {attachment.file_names}."
+                )
+            )
+
+        return service_option
 
 
     def _force_route_check(
@@ -350,10 +433,45 @@ class QABase(ServiceBase):
         return use_rag
 
 
+    @staticmethod
+    def _strip_chat_history(
+        context: str | dict
+    ) -> str | dict:
+        """
+        Remove the chat history block from a context.
+
+        The block written by `build_context_from_chat_history()` always comes
+        first, so everything up to the end of its closing marker line is dropped.
+        Only the main answer call uses this: it receives the history as chat
+        messages, while the other services still need it in the context.
+
+        Args:
+            context (str | dict): context, or a dict holding it under "context".
+
+        Returns:
+            context (str | dict): the context without the chat history block.
+        """
+        if isinstance(context, dict):
+            return {
+                **context,
+                "context": QABase._strip_chat_history(context=context.get("context", ""))
+            }
+
+        marker_index: int = context.find(CHAT_HISTORY_END_MARKER)
+
+        if marker_index < 0:
+            return context
+
+        line_end: int = context.find("\n", marker_index)
+
+        return "" if line_end < 0 else context[line_end + 1:]
+
+
     def _split_chat_history_context(self, context: str) -> tuple[str, str]:
         """
         Split context into its chat-history and non-history parts, based on
-        whether it carries the "Conversation History:" marker.
+        whether it carries the "Conversation History" marker written by
+        `build_context_from_chat_history()`.
 
         Args:
             context (str): context associated with the question.
@@ -363,7 +481,7 @@ class QABase(ServiceBase):
 
             rag_context (str): context if it doesn't hold chat history, else "".
         """
-        is_chat_history = "Conversation History:" in context
+        is_chat_history = "Conversation History" in context
         return (context, "") if is_chat_history else ("", context)
 
 
@@ -572,6 +690,84 @@ class QABase(ServiceBase):
         )
 
 
+    def _rewrite_follow_up(
+        self,
+        query: str,
+        history_messages: list[dict[str, str]] | None
+    ) -> tuple[str, int, int]:
+        """
+        Rewrite a follow-up question into a standalone query for retrieval.
+
+        A follow-up such as "what about its committees?" cannot be matched
+        against the vector database on its own, so the LLM resolves what it
+        refers to from the recent turns. The answer is still generated from the
+        original question. Turned off with `RAG_QUERY_REWRITE=false`.
+
+        Args:
+            query (str): the question.
+            history_messages (list[dict[str, str]] | None): prior user and assistant turns.
+
+        Returns:
+            retrieval_query (str): standalone query, or `query` when there is no
+                history, rewriting is off, or the rewrite fails.
+            input_token (int): input tokens of the rewrite call.
+            output_token (int): output tokens of the rewrite call.
+        """
+        retrieval_query:    str = query
+        input_token:        int = 0
+        output_token:       int = 0
+
+        is_enabled: bool = getenv("RAG_QUERY_REWRITE", "true").strip().lower() == "true"
+
+        if not history_messages or not is_enabled:
+            return (
+                retrieval_query,
+                input_token,
+                output_token
+            )
+
+        messages: list[dict[str, str]] = [
+            {"role": "system", "content": QUERY_REWRITE_PROMPT},
+            *history_messages[-QUERY_REWRITE_HISTORY_MESSAGES:],
+            {"role": "user", "content": f"Latest question: {query}"}
+        ]
+
+        # Broad catch: a failed rewrite must never block the answer.
+        try:
+            (
+                rewritten,
+                input_token,
+                output_token
+            ) = self.llm.chat_messages(messages=messages)
+
+            rewritten = rewritten.strip().strip("\"'")
+
+            if rewritten and len(rewritten) <= QUERY_REWRITE_MAX_CHARS:
+                retrieval_query = rewritten
+
+        except Exception as exc:
+            print(
+                set_color(
+                    status="warning",
+                    information=f"[qa] Query rewrite skipped: {exc}"
+                )
+            )
+
+        if retrieval_query != query:
+            print(
+                set_color(
+                    status="info",
+                    information=f"[qa] Retrieval query rewritten: '{query}' -> '{retrieval_query}'"
+                )
+            )
+
+        return (
+            retrieval_query,
+            input_token,
+            output_token
+        )
+
+
     def _retrieve_rag_context(
         self,
         query: str,
@@ -582,6 +778,7 @@ class QABase(ServiceBase):
         memory_service_active: bool,
         attachment: AttachmentContext,
         kb_service_name: str | None,
+        retrieval_query: str | None = None
     ) -> tuple[str, str | dict, float | int, str, list[dict[str, Any]], bool]:
         """
         Retrieve RAG context for the query and fold it into `context`.
@@ -604,6 +801,9 @@ class QABase(ServiceBase):
 
             kb_service_name (str | None): memory-capable service the query was
                 routed to, if any.
+
+            retrieval_query (str | None, optional): query used to search the vector
+                database instead of `query` (see `_rewrite_follow_up()`). Defaults to None.
 
         Returns:
             user_prompt (str): prompt built from the query and non-history context.
@@ -633,7 +833,7 @@ class QABase(ServiceBase):
             retrieved_context_score,
             retrieved_sources
         ) = self._retrieve_context(
-            query = query,
+            query = retrieval_query or query,
             attachment = attachment,
             user_id = user_id,
             session_id = session_id,
@@ -677,15 +877,16 @@ class QABase(ServiceBase):
         # for legacy purposes. Change to `dict[int, dict[str, str]]` type when
         # update to handle `int` properly
         services:               dict[str, dict[str, str]],
-        context:                str | dict[str, str]    = "",
-        is_rag:                 bool                    = False,
-        verbose:                bool                    = False,
-        user_id:                str | None              = None,
-        session_id:             str | None              = None,
-        global_service_names:   list[str] | None        = None,
-        memory_service_active:  bool                    = False,
-        has_files:              bool                    = False,
-        file_refs:              list[str] | None        = None,
+        context:                str | dict[str, str]        = "",
+        is_rag:                 bool                        = False,
+        verbose:                bool                        = False,
+        user_id:                str | None                  = None,
+        session_id:             str | None                  = None,
+        global_service_names:   list[str] | None            = None,
+        memory_service_active:  bool                        = False,
+        has_files:              bool                        = False,
+        file_refs:              list[str] | None            = None,
+        history_messages:       list[dict[str, str]] | None = None
     ) -> tuple[str, str, datetime, int, int ,float | int]:
         """
         Process each QA.
@@ -717,6 +918,9 @@ class QABase(ServiceBase):
 
             file_refs (list[str] | None, optional):
                 attached file references in "<8-hex file_id>_<name>" form. Defaults to None.
+
+            history_messages (list[dict[str, str]] | None, optional):
+                prior user and assistant turns, sent to the LLM as chat messages. Defaults to None.
 
         Returns:
             response (str): truncated answer if applicable.
@@ -758,24 +962,43 @@ class QABase(ServiceBase):
         # cut down to just "name" of the services not its "desc"
         services_name: dict[str, str] = self._get_services_name(services=services)
 
+        # Give the analyser the chat history so follow-up questions are routed
+        # by what they refer to.
+        routing_chat_history: str = (
+            self._split_chat_history_context(context=context)[0]
+            if isinstance(context, str)
+            else ""
+        )
+
         # Get service option & minimal extra info about selected service through
         # `query_analyser.py`.
         (
             service_option,
             service_info_dict
         ) = self.query_analyser(
-            query=query,        # pyright: ignore[reportCallIssue]
-            services=services   # pyright: ignore[reportCallIssue]
+            query=query,                                # pyright: ignore[reportCallIssue]
+            services=services,                          # pyright: ignore[reportCallIssue]
+            chat_history=routing_chat_history,          # pyright: ignore[reportCallIssue]
+            file_names=file_refs                        # pyright: ignore[reportCallIssue]
         )
 
         # Files the question is about: attached this turn, or attached earlier
         # in the session when the question points at "the file".
-        attachment: AttachmentContext = AttachmentResolver(self.rag.vector_database)(
+        attachment_resolver: AttachmentResolver = AttachmentResolver(self.rag.vector_database)
+        attachment: AttachmentContext = attachment_resolver(
             query = query,
             file_refs = file_refs,
             has_files = has_files,
             user_id = user_id,
             session_id = session_id
+        )
+
+        service_option = QABase._route_session_files(
+            service_option=service_option,
+            attachment=attachment,
+            attachment_resolver=attachment_resolver,
+            user_id=user_id,
+            session_id=session_id
         )
 
         # Check if force route is required.
@@ -784,8 +1007,14 @@ class QABase(ServiceBase):
             has_attachment = has_files or bool(attachment.document_ids)
         )
 
+        if service_option == SESSION_FILE_LIST_ROUTE:
+            response        = session_file_list_answer(file_names=attachment.session_file_names)
+            raw_response    = response
+            input_token     = 0
+            output_token    = 0
+
         # TODO: Remove chess service
-        if service_option.startswith("1."):
+        elif service_option.startswith("1."):
             (
                 response,
                 raw_response,
@@ -854,6 +1083,19 @@ class QABase(ServiceBase):
                     else (None)
                 )
 
+                # Search with a standalone version of a follow-up question.
+                (
+                    retrieval_query,
+                    rewrite_input_token,
+                    rewrite_output_token
+                ) = self._rewrite_follow_up(
+                    query=query,
+                    history_messages=history_messages
+                )
+
+                service_info_dict["input_token"]    += rewrite_input_token
+                service_info_dict["output_token"]   += rewrite_output_token
+
                 (
                     user_prompt,
                     context,
@@ -862,6 +1104,7 @@ class QABase(ServiceBase):
                     retrieved_sources,
                     answered_from_file
                 ) = self._retrieve_rag_context(
+                    retrieval_query = retrieval_query,
                     query = query,
                     context = context,
                     user_id = user_id,
@@ -895,12 +1138,18 @@ class QABase(ServiceBase):
                 output_token
             ) = self.llm( # pyright: ignore[reportAssignmentType]
                 question=user_prompt,
-                context=context,
+                # Prior turns go as chat messages here, so drop their text copy.
+                context=(
+                    QABase._strip_chat_history(context=context)
+                    if history_messages
+                    else context
+                ),
                 service_name=self._select_persona(
                     service_option,
                     routed_service_name=services_name.get(service_option, ""),
                     answered_from_file=answered_from_file
-                )
+                ),
+                history_messages=history_messages
             )
 
             # Acknowledge an attached file the question was not about, even when

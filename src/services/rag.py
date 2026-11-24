@@ -1,5 +1,6 @@
 ### Core modules ###
 import os
+from time import perf_counter
 from qdrant_client.models import (
     FieldCondition,
     Filter,
@@ -16,6 +17,7 @@ from langchain_core.documents import Document
 ### Internal modules ###
 from .base import ServiceBase
 from .vector_database import VectorDatabase
+from ...utils.log_tool import set_color
 
 
 # Stored memory_type -> (tier, human-readable label) used when citing sources.
@@ -40,6 +42,9 @@ class RAGBase(ServiceBase):
             RAG_RERANK_ENABLED  (bool): two-stage retrieval (dense pool -> cross-encoder).
             RAG_CANDIDATE_POOL  (int):  dense candidates fetched before reranking.
             RAG_RERANK_TOPK     (int):  contexts kept after reranking.
+            RAG_ATTACHMENT_CANDIDATE_POOL (int, optional): candidates per pass when
+                a question with an attached file searches both the file and the
+                knowledge base. Defaults to RAG_CANDIDATE_POOL.
 
         Args:
             vector_database (VectorDatabase): vector database.
@@ -57,6 +62,9 @@ class RAGBase(ServiceBase):
         self.rerank_enabled         = os.environ["RAG_RERANK_ENABLED"].strip().lower() == "true"
         self.candidate_pool         = int(os.environ["RAG_CANDIDATE_POOL"])
         self.rerank_topk            = int(os.environ["RAG_RERANK_TOPK"])
+
+        # Two reranked passes cost twice the cross-encoder work, so they may use a smaller pool.
+        self.attachment_candidate_pool  = int(os.getenv("RAG_ATTACHMENT_CANDIDATE_POOL", str(self.candidate_pool)))
 
 
     def set_vector_database(
@@ -305,6 +313,30 @@ class RAGBase(ServiceBase):
         return ordered[:keep_n]
 
 
+    @staticmethod
+    def _log_timing(
+        search_ms: float,
+        rerank_ms: float,
+        num_candidates: int
+    ) -> None:
+        """
+        Log the time of one retrieval pass, to see where retrieval latency goes.
+
+        Args:
+            search_ms (float): query embedding and vector search time.
+            rerank_ms (float): cross-encoder time (0 when not reranked).
+            num_candidates (int): chunks fetched by the search.
+        """
+        print(
+            set_color(
+                status="info",
+                information=f"[rag] Retrieval pass: search {search_ms:.0f} ms, rerank {rerank_ms:.0f} ms, {num_candidates} candidates"
+            )
+        )
+
+        return None
+
+
     def _retrieve_pairs(
         self,
         user_prompt: str,
@@ -314,13 +346,16 @@ class RAGBase(ServiceBase):
         include_session: bool = True,
         include_user: bool = False,
         include_global: bool = True,
-        document_ids: list[str] | None = None
+        document_ids: list[str] | None = None,
+        candidate_pool: int | None = None
     ) -> list[tuple[Document, float]]:
         """
         Search the active memory tiers and select the most relevant chunks.
 
         Args:
-            Same as `__call__()`.
+            Same as `__call__()`, plus:
+            candidate_pool (int | None, optional): candidates fetched before
+                reranking. Defaults to None (RAG_CANDIDATE_POOL).
 
         Returns:
             selected (list[tuple[Document, float]]): selected (chunk, score) pairs,
@@ -345,7 +380,9 @@ class RAGBase(ServiceBase):
             return selected
 
         # Fetch a larger candidate pool when reranking.
-        fetch_k: int = self.candidate_pool if self.rerank_enabled else self.topk
+        fetch_k: int = (candidate_pool or self.candidate_pool) if self.rerank_enabled else self.topk
+
+        search_start: float = perf_counter()
         retrieved_contents: list[tuple[Document, float]] = (
             self.vector_database.similarity_search_with_relevance_scores(
                 query=user_prompt,
@@ -353,12 +390,21 @@ class RAGBase(ServiceBase):
                 filter=memory_filter
             )
         )
+        search_ms: float = (perf_counter() - search_start) * 1000
 
         if self.rerank_enabled and retrieved_contents:
             candidate_docs: list[Document] = [doc for doc, _ in retrieved_contents]
+
+            rerank_start: float = perf_counter()
             rerank_scores: list[float] = self.vector_database.rerank(
                 user_prompt,
                 [doc.page_content for doc in candidate_docs]
+            )
+
+            RAGBase._log_timing(
+                search_ms=search_ms,
+                rerank_ms=(perf_counter() - rerank_start) * 1000,
+                num_candidates=len(candidate_docs)
             )
 
             if rerank_scores:
@@ -368,6 +414,13 @@ class RAGBase(ServiceBase):
                 )
 
                 return selected
+
+        else:
+            RAGBase._log_timing(
+                search_ms=search_ms,
+                rerank_ms=0.0,
+                num_candidates=len(retrieved_contents)
+            )
 
         # Reranking disabled or unavailable: use the dense similarity order.
         selected = RAGBase._select(
@@ -503,7 +556,8 @@ class RAGBase(ServiceBase):
             include_session=True,
             include_user=False,
             include_global=False,
-            document_ids=document_ids
+            document_ids=document_ids,
+            candidate_pool=self.attachment_candidate_pool
         )
         routed_to_kb: bool = kb_service_name is not None
 
@@ -517,7 +571,8 @@ class RAGBase(ServiceBase):
             global_service_names=[kb_service_name] if kb_service_name else global_service_names,
             include_session=False,
             include_user=include_user,
-            include_global=True
+            include_global=True,
+            candidate_pool=self.attachment_candidate_pool
         )
 
         if not file_pairs or not file_directed:

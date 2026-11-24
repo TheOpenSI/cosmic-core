@@ -108,9 +108,10 @@ class Ollama(LLMBase):
 
     def __call__(
         self,
-        question:       str,
-        context:        str | dict[str, Any]    = {},
-        service_name:   str                     = "",
+        question:           str,
+        context:            str | dict[str, Any]            = {},
+        service_name:       str                             = "",
+        history_messages:   list[dict[str, str]] | None     = None
     ) -> tuple[str, str, datetime, int, int]:
         """
         Process the question and generate a response using Ollama.
@@ -156,11 +157,12 @@ class Ollama(LLMBase):
             context=context
         )
 
-        # Combine system prompt with user prompt
+        # Combine system prompt, prior turns and user prompt.
         combined_prompt: list[dict[str, str]] = self.system_prompter(
             user_prompt,
             context=context,
-            service=service_name # pyright: ignore[reportCallIssue]
+            service=service_name, # pyright: ignore[reportCallIssue]
+            history_messages=history_messages
         )
 
         # Chat
@@ -186,6 +188,33 @@ class Ollama(LLMBase):
             response_timestamp,
             input_token,
             output_token
+        )
+
+
+    def chat_messages(
+        self,
+        messages: list[dict[str, str]]
+    ) -> tuple[str, int, int]:
+        """
+        Send ready-made chat messages to Ollama, without the prompters.
+
+        Args:
+            messages (list[dict[str, str]]): {"role": ..., "content": ...} entries.
+
+        Returns:
+            response (str): LLM response.
+            input_token (int): input tokens of the call.
+            output_token (int): output tokens of the call.
+        """
+        chat_response: ChatResponse = self.ollama_client.chat(
+            model=self.llm_name,
+            messages=messages
+        )
+
+        return (
+            chat_response["message"]["content"],
+            chat_response["prompt_eval_count"],
+            chat_response["eval_count"]
         )
 
 

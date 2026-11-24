@@ -16,3 +16,8 @@ LLM_INSTANCE_DICT: dict[str, str] = {
     "gpt": "GPT",
     "ollama": "GPT"
 }
+
+
+# Registry id of the general question service, which has no persona of its own.
+# NOTE: assigned by the database; keep in sync with the services table.
+GENERAL_SERVICE_ID: str = "4"
