@@ -6,13 +6,13 @@ from numpy import (
 )
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###
 from ....prompts import system_prompts as system_prompter_instances
 from ....prompts import user_prompts as user_prompter_instances
-from ..general_qa_answering.qa import QABase
+from ...qa import QABase
 from .chess import GPTFENNextMove, StockfishFENNextMove
 from ....utils.log_tool import set_color
 from ....utils.module import get_instance

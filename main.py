@@ -1,3 +1,12 @@
+### Core modules ###
+
+
+### Type hint modules ###
+
+
+### Internal modules ###
+
+
 # Entry point for the CoSMIC API.
 if __package__:
     from .apis.cores.apis import app

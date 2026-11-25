@@ -18,13 +18,13 @@ from httpx import (
 from codecarbon import EmissionsTracker
 
 
-### Type hints ###
+### Type hint modules ###
 from typing import Any
-from ...cores.tags import APITag
 
 
 ### Internal modules ###
-from ...cores.db import get_opensi_cosmic
+from ...cores.tags import APITag
+from ...cores.configs import get_opensi_cosmic
 from ...types.schemas.chatboxes import (
     ChatHistorySchema,
     ChatHistorySchemaUpdate,
@@ -34,7 +34,6 @@ from ...types.schemas.chatboxes import (
 from ....src.opensi_cosmic import OpenSICoSMIC
 from ....utils.chat_history import build_context_from_chat_history
 from ....utils.log_tool import set_color
-
 
 
 router: APIRouter = APIRouter(

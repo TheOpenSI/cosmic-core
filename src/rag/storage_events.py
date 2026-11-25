@@ -16,6 +16,14 @@ from watchdog.events import (
     FileDeletedEvent,
     FileModifiedEvent
 )
+
+
+### Type hint modules ###
+
+
+### Internal modules ###
+
+
 # PollingObserver is used instead of the native observer
 from watchdog.observers.polling import PollingObserver
 
@@ -198,7 +206,7 @@ class StorageEventHandler(FileSystemEventHandler):
         self.document_index.add_document(
             document_id=file_id,
             file_name=original_filename,
-            memory_type="global_memory",
+            memory_type="system",
             chunk_count=chunk_count,
             service_id=service_id,
             service_name=service_name,
@@ -236,7 +244,7 @@ class StorageEventHandler(FileSystemEventHandler):
         service_name: str,
         content_hash: str,
     ) -> int:
-        # Embed a global memory document into the vector DB, returning chunks
+        # Embed a system memory document into the vector DB, returning chunks
         ext = os.path.splitext(original_filename)[1].lower()
         if self.vector_database is None or ext not in EMBEDDABLE_EXTENSIONS:
             return 0
@@ -244,7 +252,7 @@ class StorageEventHandler(FileSystemEventHandler):
         payload = DocumentMetadata(
             document_id=file_id,
             file_name=original_filename,
-            memory_type="global_memory",
+            memory_type="system",
             service_id=service_id,
             service_name=service_name,
             content_hash=content_hash,
@@ -285,7 +293,7 @@ class StorageEventHandler(FileSystemEventHandler):
         self.document_index.add_document(
             document_id=existing.document_id,
             file_name=existing.file_name,
-            memory_type="global_memory",
+            memory_type="system",
             chunk_count=chunk_count,
             service_id=service_id,
             service_name=service_name,

@@ -9,7 +9,7 @@ from torch import (
 from transformers import BitsAndBytesConfig
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###

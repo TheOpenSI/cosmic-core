@@ -1,3 +1,12 @@
+### Core modules ###
+
+
+### Type hint modules ###
+
+
+### Internal modules ###
+
+
 class TokenizerBase:
     def __init__(
         self,

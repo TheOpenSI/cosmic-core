@@ -1,7 +1,7 @@
 ### Core modules ###
 
 
-### Type hints ###
+### Type hint modules ###
 from typing import Any
 
 

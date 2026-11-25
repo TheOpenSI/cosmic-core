@@ -1,3 +1,10 @@
+### Core modules ###
+
+
+### Type hint modules ###
+
+
+### Internal modules ###
 from ..base import SystemPromptBase
 from ...services import PROMPT_FILES
 

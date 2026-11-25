@@ -1,11 +1,11 @@
 ### Core modules ###
 
 
-### Type hints ###
-from ..apis.types.schemas.chatboxes import ChatHistorySchemaUpdate
+### Type hint modules ###
 
 
 ### Internal modules ###
+from ..apis.types.schemas.chatboxes import ChatHistorySchemaUpdate
 
 
 def build_context_from_chat_history(

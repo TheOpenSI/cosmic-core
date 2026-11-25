@@ -8,11 +8,11 @@ from chess import (
 from stockfish import Stockfish
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###
-from ...models.chatgpt.chatgpt import GPT
+from ...models.openai.chatgpt import GPT
 from ..base import ServiceBase
 from ....utils.env import PROJECT_ROOT
 from ....utils.log_tool import set_color

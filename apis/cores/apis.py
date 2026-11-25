@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 
-### Type hints ###
+### Type hint modules ###
 from typing import Any
 
 
@@ -15,7 +15,7 @@ from ..routers.regulars import cosmic
 from ...src.opensi_cosmic import OpenSICoSMIC
 from ...src.rag.document_index import DocumentIndex
 from ...src.rag.storage_events import StorageEventWatcher
-
+from ...utils.env import MEMORIES_ROOT
 
 
 # =====================Debugging========================
@@ -76,30 +76,34 @@ async def lifespan(app: FastAPI):
         else ({})
     )
 
-    # Initialize document indexes for global and user memory management
-    global_document_index:  DocumentIndex = DocumentIndex(persist_path="/app/data/memories/global/global_document_index.json")
-    user_document_index:    DocumentIndex = DocumentIndex(persist_path="/app/data/memories/users/user_document_index.json")
+    # Initialize document indexes for the system and user memory tiers.
+    system_document_index: DocumentIndex = DocumentIndex(
+        persist_path=str(MEMORIES_ROOT.joinpath("system", "system_document_index.json"))
+    )
+    user_document_index: DocumentIndex = DocumentIndex(
+        persist_path=str(MEMORIES_ROOT.joinpath("user", "user_document_index.json"))
+    )
 
-    app.state.global_document_index = global_document_index
+    app.state.system_document_index = system_document_index
     app.state.user_document_index = user_document_index
 
     memories.set_document_indexes(
-        global_index=global_document_index,
+        system_index=system_document_index,
         user_index=user_document_index
     )
 
     # Shared vector database (created during OpenSICoSMIC.__init__ via set_up_qa).
-    # Used both by the autonomous folder watcher (global memory) and the API
+    # Used both by the autonomous folder watcher (system memory) and the API
     # upload path (user/session memory) so every tier embeds with metadata.
     vector_database = opensi_cosmic_instance.rag.vector_database
     memories.set_vector_database(vector_database=vector_database)
 
-    # Initialize storage event watcher for autonomous file monitoring (uses global index)
+    # Initialize storage event watcher for autonomous file monitoring (uses system index)
     # All service info derives from the get_services(raw=True)
     inst = opensi_cosmic_instance
     storage_watcher: StorageEventWatcher = StorageEventWatcher(
-        watched_path="/app/data/memories/global/",
-        document_index=global_document_index,
+        watched_path=str(MEMORIES_ROOT.joinpath("system")),
+        document_index=system_document_index,
         get_rag_required_services=lambda: [
             s["id"] for s in inst.get_services(raw=True)
             if s.get("memory_capability") is True

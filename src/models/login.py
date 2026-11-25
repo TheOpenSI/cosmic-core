@@ -4,7 +4,7 @@ from pathlib import Path
 from huggingface_hub import login
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###

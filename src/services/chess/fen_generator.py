@@ -2,7 +2,7 @@
 from pandas import read_csv
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###

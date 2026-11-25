@@ -12,7 +12,7 @@ from langchain_community.document_loaders import PyPDFLoader
 from qdrant_client import QdrantClient, models
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###

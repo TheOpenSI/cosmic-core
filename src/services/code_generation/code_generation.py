@@ -2,12 +2,11 @@
 from requests import post
 
 
-### Type hints ###
+### Type hint modules ###
 from requests import (
     Response,
     RequestException
 )
-
 
 
 ### Internal modules ###

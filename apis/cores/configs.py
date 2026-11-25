@@ -1,11 +1,13 @@
 ### Core modules ###
+from fastapi import Request
 from os import environ
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###
+from ...src.opensi_cosmic import OpenSICoSMIC
 from ...utils.env import load_env
 
 
@@ -18,6 +20,10 @@ DEFAULT_CORS_ALLOW_ORIGINS: tuple[str, ...] = (
     "http://localhost:5173",   # FE binded Docker port (dev)
     "http://localhost:11434",  # Ollama binded Docker port
 )
+
+
+def get_opensi_cosmic(request: Request) -> OpenSICoSMIC:
+    return request.app.state.opensi_cosmic
 
 
 def get_cors_allow_origins() -> list[str]:

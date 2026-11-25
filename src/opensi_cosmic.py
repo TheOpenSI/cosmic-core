@@ -22,7 +22,7 @@ from httpx import (
 from pprint import pp
 
 
-### Type hints ###
+### Type hint modules ###
 from typing import Any
 
 
@@ -31,7 +31,7 @@ from . import models as llm_instances
 from .maps import LLM_INSTANCE_DICT
 from .rag.vector_database import VectorDatabase
 from .rag.base import RAGBase
-from .services.general_qa_answering.qa import QABase
+from .qa import QABase
 from .services.system_information.system_information import SystemInformationService
 from .services.fallback.fallback import FallbackService
 from .services.chess.puzzle_analyser import PuzzleAnalyse
@@ -394,7 +394,7 @@ class OpenSICoSMIC:
 
             # Resolve which memory scopes are active for retrieval
             _services = self.get_services(raw=True)
-            global_service_names = [
+            system_service_names = [
                 s["name"] for s in _services
                 if s.get("status") is True
                 and s.get("memory_capability") is True
@@ -426,7 +426,7 @@ class OpenSICoSMIC:
                 verbose=False,
                 user_id=call_user_id,
                 session_id=session_id,
-                global_service_names=global_service_names,
+                system_service_names=system_service_names,
                 memory_service_active=memory_service_active,
                 has_files=has_files,
                 file_refs=file_refs, # pyright: ignore[reportUnknownArgumentType]

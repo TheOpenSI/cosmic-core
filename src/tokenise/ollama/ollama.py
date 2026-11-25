@@ -1,4 +1,11 @@
-from ..chatgpt.chatgpt import GPT
+### Core modules ###
+
+
+### Type hint modules ###
+
+
+### Internal modules ###
+from ..openai.chatgpt import GPT
 
 
 class Ollama(GPT):

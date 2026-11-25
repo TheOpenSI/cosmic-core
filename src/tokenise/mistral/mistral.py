@@ -1,6 +1,11 @@
+### Core modules ###
 from transformers import AutoTokenizer
 
 
+### Type hint modules ###
+
+
+### Internal modules ###
 from ...maps import LLM_MODEL_DICT
 from ...models.login import LLMLogin
 from ..base import TokenizerBase

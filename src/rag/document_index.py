@@ -7,9 +7,12 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from zoneinfo import ZoneInfo
 
-### Type hints ###
+
+### Type hint modules ###
+
 
 ### Internal modules ###
+from ...utils.env import MEMORIES_ROOT
 from ..services.base import ServiceBase
 
 
@@ -77,7 +80,7 @@ class DocumentMetadata:
             "file_ext": self.file_ext,
             "content_type": self.content_type,
         }
-        if self.memory_type == "global_memory":
+        if self.memory_type in ("system", "global_memory"):
             data["service_id"] = self.service_id
             data["service_name"] = self.service_name
         else:
@@ -99,7 +102,7 @@ class DocumentMetadata:
             "upload_date": self.upload_date,
             "updated_date": self.updated_date,
         }
-        if self.memory_type == "global_memory":
+        if self.memory_type in ("system", "global_memory"):
             payload["service_id"] = self.service_id
             payload["service_name"] = self.service_name
         else:
@@ -345,13 +348,13 @@ class DocumentIndex(ServiceBase):
             print(f"Error loading document index from {self.persist_path}: {e}")
             self.documents = {}
 
-    def sync_with_filesystem(self, base_path: str = "/app/data/memories/global/") -> None:
+    def sync_with_filesystem(self, base_path: str = str(MEMORIES_ROOT.joinpath("system"))) -> None:
         """Sync document_index with actual filesystem state.
 
         Removes entries for files that no longer exist and logs orphaned files.
 
         Args:
-            base_path (str): Base path to scan for files. Defaults to global memory path.
+            base_path (str): Base path to scan for files. Defaults to the system memory path.
         """
         import os
 
@@ -368,7 +371,7 @@ class DocumentIndex(ServiceBase):
         # Remove index entries for missing files
         documents_to_remove = []
         for doc_id, metadata in self.documents.items():
-            if metadata.memory_type == "global_memory":
+            if metadata.memory_type in ("system", "global_memory"):
                 # Reconstruct expected file path
                 service_name = metadata.service_name or ""
                 expected_path = os.path.join(

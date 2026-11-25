@@ -7,14 +7,13 @@ from ollama import (
 )
 
 
-### Type hints ###
+### Type hint modules ###
 from typing import Any
 
 
 ### Internal modules ###
 from ..base import LLMBase
 from .pull_manager import OllamaPullManager
-
 
 
 class Ollama(LLMBase):

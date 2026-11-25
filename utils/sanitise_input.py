@@ -7,7 +7,7 @@ from shlex import quote
 from keyword import iskeyword
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###

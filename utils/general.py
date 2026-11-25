@@ -2,7 +2,7 @@
 import openai
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###

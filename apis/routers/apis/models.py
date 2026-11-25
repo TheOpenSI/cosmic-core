@@ -11,11 +11,11 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 
-### Type hints ###
-from ...cores.tags import APITag
+### Type hint modules ###
 
 
 ### Internal modules ###
+from ...cores.tags import APITag
 from ....src.models.ollama.ollama import Ollama
 
 

@@ -1,7 +1,12 @@
+### Core modules ###
 from os import getenv
 from openai import OpenAI
 
 
+### Type hint modules ###
+
+
+### Internal modules ###
 from ..base import LLMBase
 from ....utils.log_tool import set_color
 

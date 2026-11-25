@@ -14,8 +14,7 @@ cosmic-core/
 ├── apis/                         # FastAPI application layer
 │   ├── cores/                    # App setup, dependencies, configs and API tags
 │   │   ├── apis.py               # FastAPI app + lifespan
-│   │   ├── configs.py            # Env loading + CORS configuration
-│   │   ├── db.py                 # OpenSICoSMIC FastAPI dependency
+│   │   ├── configs.py            # Env loading, CORS and the shared FastAPI dependency
 │   │   ├── tags.py               # API tags
 │   │   └── cosmic_cfg.env        # Generated config (gitignored)
 │   ├── routers/
@@ -26,8 +25,10 @@ cosmic-core/
 │   ├── Fen-To-Board-Image/       # Git submodule (not referenced by runtime code yet)
 │   ├── Stockfish/                # Git submodule; setup fetches src/stockfish
 │   ├── setup.sh                  # Linux/macOS bootstrap
-│   └── setup.ps1                 # Windows bootstrap
+│   ├── setup.ps1                 # Windows bootstrap
+│   └── migrate_memory_tiers.py   # One-off system/user/session migration
 ├── data/                         # Datasets and the on-disk memory store
+│   └── memories/{system,user,session}/  # Memory tiers, priority system > user > session
 ├── docker/                       # Containerisation resources per service
 │   ├── fastapi/
 │   ├── ollama/
@@ -36,7 +37,7 @@ cosmic-core/
 ├── examples/                     # Example env files and the file-list template
 ├── prompts/                      # Prompting logic, grouped by layer
 │   ├── system_prompts/
-│   │   ├── models/               # Per-model-family system prompts (base.py + families)
+│   │   ├── models/               # Per-company/model-family system prompts (base.py + families)
 │   │   ├── services/             # Per-service system prompts and persona assets
 │   │   └── query_analyser/       # Query-analyser system prompt slot
 │   └── user_prompts/
@@ -45,11 +46,11 @@ cosmic-core/
 │       └── query_analyser/       # Query-analyser user prompts
 ├── src/                          # The "heart" of CoSMIC
 │   ├── models/                   # LLM providers (base.py + model families)
-│   │   ├── mistral/
-│   │   ├── gemma/
-│   │   ├── chatgpt/
-│   │   └── ollama/
-│   ├── tokenise/                 # Tokenising methods (base.py + model families)
+│   │   ├── mistral/              # Mistral AI
+│   │   ├── google/               # Google (Gemma, future Gemini/Nano Banana)
+│   │   ├── openai/               # OpenAI (ChatGPT/GPT)
+│   │   └── ollama/               # Ollama runtime provider
+│   ├── tokenise/                 # Tokenising methods (base.py + company families)
 │   ├── rag/                      # Retrieval-augmented generation and vector storage
 │   │   ├── base.py
 │   │   ├── vector_database.py
@@ -57,11 +58,12 @@ cosmic-core/
 │   │   ├── storage_events.py
 │   │   └── attachment_context.py
 │   ├── query_analyser/           # SLM-based query routing
+│   ├── qa.py                     # QA orchestrator (beside opensi_cosmic.py)
 │   ├── services/                 # Specialised AI services, one directory each
 │   │   ├── base.py
 │   │   ├── chess/
 │   │   ├── code_generation/
-│   │   ├── general_qa_answering/
+│   │   ├── general_qa_answering/ # Placeholder for the future modular split
 │   │   ├── fallback/
 │   │   ├── system_information/
 │   │   └── academic_governance/
@@ -150,6 +152,8 @@ Both are gitignored, so editing them never leaks secrets. A fresh clone still ru
 Secrets (`OPENAI_API_KEY`, `hf_token`, `hf_token_finetune`) and local overrides belong in the gitignored `apis/cores/cosmic_cfg.env` (or the shell/container environment). Nothing is read from a root `.env`.
 
 Precedence is: shell/container environment > `apis/cores/cosmic_cfg.env` + `src/cosmic_core.env` > `examples/*.example.env`.
+
+Existing deployments upgrading from the previous layout should run `bins/migrate_memory_tiers.py` once with Qdrant available; it renames the memory directories and indexes and rewrites the legacy `global_memory` Qdrant payloads to `system`.
 
 
 ---
@@ -334,6 +338,18 @@ Currently, **CoSMIC** provides 5 core services, each discoverable via the **Serv
 # Conventions
 
 This repository follows the shared [EditorConfig conventions](docs/conventions/EDITORCONFIG.md). See the [live documentation](https://github.com/TheOpenSI/cosmic-docs/blob/main/docs/06-development/editorconfig.md) for the rules and editor setup.
+
+Python files use three import groups in this order, with empty groups kept for consistency:
+
+```python
+### Core modules ###
+
+
+### Type hint modules ###
+
+
+### Internal modules ###
+```
 
 ---
 

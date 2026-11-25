@@ -3,12 +3,12 @@ from sys import exit
 from pandas import read_csv
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###
 from ....prompts import user_prompts as user_prompt_instances
-from ...models.chatgpt.chatgpt import GPT
+from ...models.openai.chatgpt import GPT
 from .chess import ChessBase
 from ....utils.log_tool import set_color
 

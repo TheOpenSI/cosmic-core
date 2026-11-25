@@ -8,11 +8,11 @@ from numpy import (
 from numbers import Number
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###
-from ..general_qa_answering.qa import QABase
+from ...qa import QABase
 from ....utils.log_tool import set_color
 from ....utils.num2word import convert_number2word
 

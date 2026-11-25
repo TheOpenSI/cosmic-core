@@ -4,12 +4,11 @@ from threading import Thread
 from time import sleep
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###
 from ....utils.log_tool import set_color
-
 
 
 class OllamaPullManager:

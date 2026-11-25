@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from pydantic.types import UUID7
 
 
-### Type hints ###
+### Type hint modules ###
 from typing import Any
 
 
@@ -26,6 +26,7 @@ from ....src.rag.document_index import (
     compute_content_hash
 )
 from ....src.rag.vector_database import VectorDatabase
+from ....utils.env import MEMORIES_ROOT
 from ....utils.log_tool import set_color
 
 
@@ -33,7 +34,7 @@ from ....utils.log_tool import set_color
 EMBEDDABLE_EXTENSIONS:  set[str] = {".pdf"}
 
 # Global and User document index instances. These are wired up at startup.
-_global_document_index: DocumentIndex | None = None
+_system_document_index: DocumentIndex | None = None
 _user_document_index:   DocumentIndex | None = None
 
 # Vector database used to embed uploaded files.
@@ -46,13 +47,13 @@ class SessionDeleteRequest(BaseModel):
 
 
 def set_document_indexes(
-    global_index: DocumentIndex,
+    system_index: DocumentIndex,
     user_index: DocumentIndex
 ) -> None:
     """Initialize document indexes (called once at startup)."""
-    global _global_document_index, _user_document_index
+    global _system_document_index, _user_document_index
 
-    _global_document_index = global_index
+    _system_document_index = system_index
     _user_document_index = user_index
 
 
@@ -79,10 +80,10 @@ async def upload_file(
     chat_session_id:    str = "default",
     user_id:            str = "default"
 ) -> dict[str, str | int]:
-    if memory_type == "global_memory":
+    if memory_type in ("system", "global_memory"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Global memory uploads are not supported at the API level."
+            detail="System memory uploads are not supported at the API level."
         )
 
     # ---- Duplicate filename check ----
@@ -104,14 +105,14 @@ async def upload_file(
     file_id: str = uuid7().hex[:8]
 
     if memory_type == "user":
-        save_dir = Path(f"/app/data/memories/users/{user_id}")
+        save_dir = MEMORIES_ROOT.joinpath("user", user_id)
     else:  # memory_type == "session"
-        save_dir = Path(f"/app/data/memories/users/{user_id}/sessions/{chat_session_id}")
+        save_dir = MEMORIES_ROOT.joinpath("session", chat_session_id)
 
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    # combine path + file name -> example: Path("/app/data/chat_session_memory/123/manile.pdf")
-    file_path: Path = save_dir / f"{file_id}_{file.filename}"
+    # Combine the tier directory and file name.
+    file_path: Path = save_dir.joinpath(f"{file_id}_{file.filename}")
 
     # Create a folder and write that content in opened file
     with open(file_path, "wb") as f:
@@ -218,7 +219,7 @@ async def delete_session_data(request: SessionDeleteRequest) -> dict[str, bool |
 
     deleted_files:  int         = 0
     failed_paths:   list[str]   = []
-    session_dir:    Path        = Path(f"/app/data/memories/users/{user_id}/sessions/{chat_session_id}")
+    session_dir:    Path        = MEMORIES_ROOT.joinpath("session", chat_session_id)
 
     if session_dir.exists():
         try:

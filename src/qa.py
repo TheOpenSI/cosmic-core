@@ -6,31 +6,31 @@ from datetime import (
 import uuid
 
 
-### Type hints ###
+### Type hint modules ###
 from typing import Any
 
 
 ### Internal modules ###
-from ...models.base import LLMBase
-from ...rag.attachment_context import (
+from .models.base import LLMBase
+from .rag.attachment_context import (
     AttachmentContext,
     AttachmentResolver,
     MISSING_FILE_LLM_NOTE,
     MISSING_FILE_USER_NOTE,
     unused_file_note
 )
-from ...rag.base import RAGBase
-from ...rag.document_index import DocumentMetadata
-from ..base import ServiceBase
-from ..chess.chess import (
+from .rag.base import RAGBase
+from .rag.document_index import DocumentMetadata
+from .services.base import ServiceBase
+from .services.chess.chess import (
     STOCKFISH_BINARY_PATH,
     StockfishFENNextMove,
     StockfishSequenceNextMove
 )
-from ..code_generation.code_generation import CodeGenerator
-from ..fallback.fallback import FallbackService
-from ..system_information.system_information import SystemInformationService
-from ....utils.log_tool import set_color
+from .services.code_generation.code_generation import CodeGenerator
+from .services.fallback.fallback import FallbackService
+from .services.system_information.system_information import SystemInformationService
+from ..utils.log_tool import set_color
 
 
 # System prompt (prompts/system_prompts/services/general_qa_answering/document_qa.txt) for questions answered from a file.
@@ -401,7 +401,7 @@ class QABase(ServiceBase):
         List where the retrieved context came from, one line per source.
 
         Sources keep relevance order and are de-duplicated by (tier, title,
-        service). A global source also names the service it belongs to.
+        service). A system source also names the service it belongs to.
 
         Args:
             sources (list[dict]): origin of each retrieved chunk.
@@ -421,7 +421,7 @@ class QABase(ServiceBase):
             seen.add(key)
 
             label = source["label"]
-            if source["tier"] == "global" and source["service_name"]:
+            if source["tier"] == "system" and source["service_name"]:
                 label = f"{label} ({source['service_name']})"
             lines.append(f"- {label}: {source['title'] or '(untitled)'}")
 
@@ -511,7 +511,7 @@ class QABase(ServiceBase):
         attachment: AttachmentContext,
         user_id: str | None,
         session_id: str | None,
-        global_service_names: list[str] | None,
+        system_service_names: list[str] | None,
         memory_service_active: bool,
         kb_service_name: str | None
     ) -> tuple[str, list[float], list[dict[str, Any]]]:
@@ -532,7 +532,7 @@ class QABase(ServiceBase):
 
             session_id (str | None): current chat session.
 
-            global_service_names (list[str] | None): memory-capable services.
+            system_service_names (list[str] | None): memory-capable services.
 
             memory_service_active (bool): search the user's saved memory.
 
@@ -552,7 +552,7 @@ class QABase(ServiceBase):
                 document_ids = attachment.document_ids,
                 user_id = user_id,
                 session_id = session_id,
-                global_service_names = global_service_names,
+                system_service_names = system_service_names,
                 include_user = memory_service_active,
                 file_directed = attachment.file_directed,
                 kb_service_name = kb_service_name
@@ -562,10 +562,10 @@ class QABase(ServiceBase):
             query,
             user_id = user_id,
             session_id = session_id,
-            global_service_names = global_service_names,
+            system_service_names = system_service_names,
             include_session = True,
             include_user = memory_service_active,
-            include_global = True
+            include_system = True
         )
 
 
@@ -575,7 +575,7 @@ class QABase(ServiceBase):
         context: str | dict,
         user_id: str | None,
         session_id: str | None,
-        global_service_names: list[str] | None,
+        system_service_names: list[str] | None,
         memory_service_active: bool,
         attachment: AttachmentContext,
         kb_service_name: str | None,
@@ -592,7 +592,7 @@ class QABase(ServiceBase):
 
             session_id (str | None): the current session, used to scope retrieval.
 
-            global_service_names (list[str] | None): global services to include in retrieval.
+            system_service_names (list[str] | None): system services to include in retrieval.
 
             memory_service_active (bool): whether the user memory tier should be included.
 
@@ -634,7 +634,7 @@ class QABase(ServiceBase):
             attachment = attachment,
             user_id = user_id,
             session_id = session_id,
-            global_service_names = global_service_names,
+            system_service_names = system_service_names,
             memory_service_active = memory_service_active,
             kb_service_name = kb_service_name
         )
@@ -679,7 +679,7 @@ class QABase(ServiceBase):
         verbose:                bool                    = False,
         user_id:                str | None              = None,
         session_id:             str | None              = None,
-        global_service_names:   list[str] | None        = None,
+        system_service_names:   list[str] | None        = None,
         memory_service_active:  bool                    = False,
         has_files:              bool                    = False,
         file_refs:              list[str] | None        = None,
@@ -705,8 +705,8 @@ class QABase(ServiceBase):
 
             session_id (str | None, optional): chat session of the session memory. Defaults to None.
 
-            global_service_names (list[str] | None, optional):
-                services whose global memory is searched. Defaults to None.
+            system_service_names (list[str] | None, optional):
+                services whose system memory is searched. Defaults to None.
 
             memory_service_active (bool, optional): if the memory service is enabled. Defaults to False.
 
@@ -863,7 +863,7 @@ class QABase(ServiceBase):
                     context = context,
                     user_id = user_id,
                     session_id = session_id,
-                    global_service_names = global_service_names,
+                    system_service_names = system_service_names,
                     memory_service_active = memory_service_active,
                     attachment = attachment,
                     kb_service_name = kb_service_name

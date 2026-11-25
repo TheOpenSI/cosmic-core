@@ -6,7 +6,7 @@ from dataclasses import (
 )
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###

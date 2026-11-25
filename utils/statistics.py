@@ -11,7 +11,7 @@ from pandas import (
 )
 
 
-### Type hints ###
+### Type hint modules ###
 from pandas import DataFrame
 
 

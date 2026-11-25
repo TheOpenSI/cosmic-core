@@ -5,7 +5,7 @@ from pathlib import Path
 from re import search
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###
@@ -15,7 +15,6 @@ from ..maps import LLM_INSTANCE_DICT
 from ...utils.env import PROJECT_ROOT
 from ...utils.log_tool import set_color
 from ...utils.module import get_instance
-
 
 
 class QueryAnalyser:

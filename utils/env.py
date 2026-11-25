@@ -3,6 +3,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
+### Type hint modules ###
+
+
+### Internal modules ###
+
+
 # Repository root: utils/env.py -> utils/ -> root.
 PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 
@@ -10,13 +16,14 @@ PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 # Runtime files are created by `bins/setup.*` and are gitignored; the examples
 # keep a fresh clone runnable. Secrets belong in the runtime config file.
 ENV_FILES: tuple[Path, ...] = (
-    PROJECT_ROOT / "apis" / "cores" / "cosmic_cfg.env",
-    PROJECT_ROOT / "src" / "cosmic_core.env",
+    PROJECT_ROOT.joinpath("apis", "cores", "cosmic_cfg.env"),
+    PROJECT_ROOT.joinpath("src", "cosmic_core.env"),
 )
 EXAMPLE_ENV_FILES: tuple[Path, ...] = (
-    PROJECT_ROOT / "examples" / "cosmic_cfg.example.env",
-    PROJECT_ROOT / "examples" / "cosmic_core.example.env",
+    PROJECT_ROOT.joinpath("examples", "cosmic_cfg.example.env"),
+    PROJECT_ROOT.joinpath("examples", "cosmic_core.example.env"),
 )
+MEMORIES_ROOT: Path = PROJECT_ROOT.joinpath("data", "memories")
 
 
 def load_env() -> None:

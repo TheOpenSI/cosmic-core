@@ -2,11 +2,10 @@
 from enum import Enum
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###
-
 
 
 """

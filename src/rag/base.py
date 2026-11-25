@@ -8,7 +8,7 @@ from qdrant_client.models import (
 )
 
 
-### Type hints ###
+### Type hint modules ###
 from typing import Any
 from langchain_core.documents import Document
 
@@ -20,9 +20,10 @@ from .vector_database import VectorDatabase
 
 # Stored memory_type -> (tier, human-readable label) used when citing sources.
 SOURCE_TIERS: dict[str, tuple[str, str]] = {
-    "session":          ("session", "Attached file / session"),
+    "system":           ("system", "System knowledge base"),
     "user":             ("user", "Your saved memory"),
-    "global_memory":    ("global", "Global knowledge base")
+    "session":          ("session", "Attached file / session"),
+    "global_memory":    ("system", "System knowledge base")
 }
 
 
@@ -103,10 +104,10 @@ class RAGBase(ServiceBase):
         Build a Qdrant payload filter scoping retrieval to a single memory tier.
 
         Args:
-            memory_type (str, optional): memory tier (session, user, global_memory).
+            memory_type (str, optional): memory tier (system, user, session).
             user_id (str, optional): owner of the memory.
             session_id (str, optional): chat session of the memory.
-            service_name (str, optional): service a global memory belongs to.
+            service_name (str, optional): service a system memory belongs to.
 
         Returns:
             memory_filter (Filter | None): filter, or None if no field is set.
@@ -137,10 +138,10 @@ class RAGBase(ServiceBase):
     def build_union_filter(
         user_id: str | None = None,
         session_id: str | None = None,
-        global_service_names: list[str] | None = None,
+        system_service_names: list[str] | None = None,
         include_session: bool = True,
         include_user: bool = False,
-        include_global: bool = True,
+        include_system: bool = True,
         document_ids: list[str] | None = None
     ) -> Filter | None:
         """
@@ -149,11 +150,11 @@ class RAGBase(ServiceBase):
         Args:
             user_id (str, optional): owner of the session and user memory.
             session_id (str, optional): chat session of the session memory.
-            global_service_names (list[str], optional): services whose global
+            system_service_names (list[str], optional): services whose system
                 memory is searched.
             include_session (bool, optional): search session memory. Defaults to True.
             include_user (bool, optional): search user memory. Defaults to False.
-            include_global (bool, optional): search global memory. Defaults to True.
+            include_system (bool, optional): search system memory. Defaults to True.
             document_ids (list[str], optional): narrow the session tier to these
                 attached documents.
 
@@ -183,12 +184,15 @@ class RAGBase(ServiceBase):
                 RAGBase.eq(field="user_id", value=user_id)
             ]))
 
-        if include_global and global_service_names:
+        if include_system and system_service_names:
             should.append(Filter(must=[
-                RAGBase.eq(field="memory_type", value="global_memory"),
+                FieldCondition(
+                    key="metadata.memory_type",
+                    match=MatchAny(any=["system", "global_memory"])
+                ),
                 FieldCondition(
                     key="metadata.service_name",
-                    match=MatchAny(any=list(global_service_names))
+                    match=MatchAny(any=list(system_service_names))
                 )
             ]))
 
@@ -211,19 +215,19 @@ class RAGBase(ServiceBase):
             doc (Document): retrieved chunk.
 
         Returns:
-            rank (int): session (0) > user (1) > global (2) > unknown (3).
+            rank (int): system (0) > user (1) > session (2) > unknown (3).
         """
         meta: dict[str, Any] = getattr(doc, "metadata", {})
 
         if "memory_type" in meta:
             match meta["memory_type"]:
-                case "session":
+                case "system" | "global_memory":
                     return 0
 
                 case "user":
                     return 1
 
-                case "global_memory":
+                case "session":
                     return 2
 
                 case _:
@@ -245,7 +249,7 @@ class RAGBase(ServiceBase):
             score   (float):    relevance score of the chunk.
 
         Returns:
-            source (dict[str, Any]): tier ("session" | "user" | "global" | "unknown"),
+            source (dict[str, Any]): tier ("system" | "user" | "session" | "unknown"),
                 label, title, service_name and score of the chunk.
         """
         meta: dict[str, Any] = doc.metadata or {}
@@ -287,8 +291,8 @@ class RAGBase(ServiceBase):
         """
         Rank chunks by relevance score and keep the best ones.
 
-        Ties on score are broken by memory tier (session > user > global), so a
-        weakly related session chunk no longer beats a highly relevant global one.
+        Ties on score are broken by memory tier (system > user > session), so a
+        weakly related system chunk wins over a highly relevant session one.
 
         Args:
             pairs   (list[tuple[Document, float]]): (chunk, score) candidates.
@@ -310,10 +314,10 @@ class RAGBase(ServiceBase):
         user_prompt: str,
         user_id: str | None = None,
         session_id: str | None = None,
-        global_service_names: list[str] | None = None,
+        system_service_names: list[str] | None = None,
         include_session: bool = True,
         include_user: bool = False,
-        include_global: bool = True,
+        include_system: bool = True,
         document_ids: list[str] | None = None
     ) -> list[tuple[Document, float]]:
         """
@@ -332,10 +336,10 @@ class RAGBase(ServiceBase):
         memory_filter: Filter | None = self.build_union_filter(
             user_id=user_id,
             session_id=session_id,
-            global_service_names=global_service_names,
+            system_service_names=system_service_names,
             include_session=include_session,
             include_user=include_user,
-            include_global=include_global,
+            include_system=include_system,
             document_ids=document_ids
         )
 
@@ -415,10 +419,10 @@ class RAGBase(ServiceBase):
         user_prompt: str,
         user_id: str | None = None,
         session_id: str | None = None,
-        global_service_names: list[str] | None = None,
+        system_service_names: list[str] | None = None,
         include_session: bool = True,
         include_user: bool = False,
-        include_global: bool = True,
+        include_system: bool = True,
         document_ids: list[str] | None = None
     ) -> tuple[str, list[float], list[dict[str, Any]]]:
         """
@@ -428,11 +432,11 @@ class RAGBase(ServiceBase):
             user_prompt (str): a question from the user.
             user_id (str, optional): owner of the session and user memory.
             session_id (str, optional): chat session of the session memory.
-            global_service_names (list[str], optional): services whose global
+            system_service_names (list[str], optional): services whose system
                 memory is searched.
             include_session (bool, optional): search session memory. Defaults to True.
             include_user (bool, optional): search user memory. Defaults to False.
-            include_global (bool, optional): search global memory. Defaults to True.
+            include_system (bool, optional): search system memory. Defaults to True.
             document_ids (list[str], optional): narrow the session tier to these
                 attached documents.
 
@@ -446,10 +450,10 @@ class RAGBase(ServiceBase):
             user_prompt=user_prompt,
             user_id=user_id,
             session_id=session_id,
-            global_service_names=global_service_names,
+            system_service_names=system_service_names,
             include_session=include_session,
             include_user=include_user,
-            include_global=include_global,
+            include_system=include_system,
             document_ids=document_ids
         )
 
@@ -462,7 +466,7 @@ class RAGBase(ServiceBase):
         document_ids: list[str],
         user_id: str | None = None,
         session_id: str | None = None,
-        global_service_names: list[str] | None = None,
+        system_service_names: list[str] | None = None,
         include_user: bool = False,
         file_directed: bool = False,
         kb_service_name: str | None = None
@@ -484,12 +488,12 @@ class RAGBase(ServiceBase):
             document_ids (list[str]): attached documents.
             user_id (str, optional): owner of the session and user memory.
             session_id (str, optional): chat session of the session memory.
-            global_service_names (list[str], optional): memory-capable services.
+            system_service_names (list[str], optional): memory-capable services.
             include_user (bool, optional): search user memory. Defaults to False.
             file_directed (bool, optional): the question points at the file.
                 Defaults to False.
             kb_service_name (str, optional): memory-capable service the query
-                analyser routed to, if any. Narrows the global tier to it.
+                analyser routed to, if any. Narrows the system tier to it.
 
         Returns:
             context (str): retrieved context from the vector database.
@@ -502,7 +506,7 @@ class RAGBase(ServiceBase):
             session_id=session_id,
             include_session=True,
             include_user=False,
-            include_global=False,
+            include_system=False,
             document_ids=document_ids
         )
         routed_to_kb: bool = kb_service_name is not None
@@ -514,10 +518,10 @@ class RAGBase(ServiceBase):
             user_prompt=user_prompt,
             user_id=user_id,
             session_id=session_id,
-            global_service_names=[kb_service_name] if kb_service_name else global_service_names,
+            system_service_names=[kb_service_name] if kb_service_name else system_service_names,
             include_session=False,
             include_user=include_user,
-            include_global=True
+            include_system=True
         )
 
         if not file_pairs or not file_directed:

@@ -1,7 +1,7 @@
 ### Core modules ###
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###

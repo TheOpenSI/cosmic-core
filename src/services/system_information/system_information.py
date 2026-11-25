@@ -2,14 +2,13 @@
 from datetime import datetime
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###
 from ....prompts.user_prompts.query_analyser.prompts import QueryAnalyserSystemInfo
 from ...models.base import LLMBase
 from ..base import ServiceBase
-
 
 
 class SystemInformationService(ServiceBase):

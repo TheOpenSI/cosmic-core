@@ -9,7 +9,7 @@ from pydantic import (
 )
 
 
-### Type hints ###
+### Type hint modules ###
 from pydantic.types import (
     UUID7,
     AwareDatetime,
