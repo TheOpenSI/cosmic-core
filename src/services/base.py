@@ -1,11 +1,11 @@
 ### Core modules ###
-from pathlib import Path
 
 
 ### Type hints ###
 
 
 ### Internal modules ###
+from utils.env import PROJECT_ROOT
 
 
 class ServiceBase:
@@ -24,7 +24,7 @@ class ServiceBase:
         self.log_file = log_file
 
         # Get the root of the current file to set log file path as absolute path if it is a relative path.
-        self.root = Path(__file__).resolve(strict=True).parent.parent.parent
+        self.root = PROJECT_ROOT
 
 
     def set_log_file(

@@ -11,48 +11,54 @@
 
 ```md
 cosmic-core/
-├── backend/
-│   ├── cores/                    # Core FastAPI application setup
-│   └── routers/                  # CoSMIC API & non-API endpoints
-│       ├── cosmic.py             # Chat endpoint and routes to the QA layer
-│       └── memory.py             # File upload endpoint (/api/v1/memory/upload)
-├── data/                         # Datasets in certain format (e.g., CSVs, Excels, etc)
-│   └── memories/                 # On-disk store for uploaded/ingested files, scoped by tier
-│       ├── global/               # Service-folder drop zone, watched for auto-ingestion
-│       └── users/                # Per-session uploaded files 
-├── default/                      # Dataset templates (TODO: to be merged into `/data` directory)
-├── docker/                       # Containerisation resources and orchestration files
-│   └── dockerfiles/              # Dockerfile for each service defined in the Compose file
-├── modules/                      # Subservices for each of CoSMIC services (if any) (TODO: to be re-structured inside `/src` directory)
-├── pipelines/                    # Depricated CoSMIC pipeline logic to work with OpenWebUI (TODO: to be removed from new structure)
-│   └── <others>/                 # Unit test files (TODO: to be moved into its own `/tests` folder on project root)
-├── src/                          # This is where the "heart" of CoSMIC located
-│   ├── query_analyser/           # SLM-based query routing and user prompt construction
-│   └── services/                 # Specialised AI service (similar to AI skills) implementations (TODO: to be re-structured in a new format for better understanding)
-│       ├── base.py               # Shared base class for services
-│       ├── document_index.py     # Tracks ingested document metadata
-│       ├── qa.py                 # Service routing and question-answering orchestration
-│       ├── rag.py                # Retrieval-augmented generation over the vector database
-│       ├── storage_events.py     # Folder-watcher that auto-ingests files dropped into it
-│       ├── vector_database.py    # Vector store (embedding, similarity search, reranking)
-│       └── llms/                 # Contains base class for calling SLM providers
-│           └── prompts/          # Contains smart prompting techniques from user queries to use for Query Analyser and specific CoSMIC services usages
-├── types/                        # Shared type definitions used across the application
+├── apis/                         # FastAPI application layer
+│   ├── cores/                    # App setup, dependencies, configs and API tags
+│   │   └── apis.py               # FastAPI app + lifespan
+│   ├── routers/                  # CoSMIC API & non-API endpoints
+│   │   ├── apis/                 # Versioned API endpoints (memory, models)
+│   │   └── regulars/             # Regular endpoints (chat/query)
+│   └── types/schemas/            # Shared request/response schemas (chatboxes)
+├── bins/                         # Clone/setup helpers and third-party tools
+│   ├── Fen-To-Board-Image/       # Git submodule (not referenced by runtime code yet)
+│   ├── Stockfish/                # Git submodule; setup fetches the binary into src/stockfish
+│   ├── setup.sh                  # Linux/macOS bootstrap (submodules, envs, Stockfish)
+│   └── setup.ps1                 # Windows bootstrap
+├── data/                         # Datasets and the on-disk memory store (data/memories)
+├── docker/                       # Containerisation resources
+│   ├── fastapi/                  # FastAPI Dockerfile
+│   ├── ollama/                   # Ollama Dockerfile
+│   └── qdrant/                   # Qdrant Dockerfile
+├── docs/                         # Repository conventions and documentation
+├── examples/                     # Example env files and the file-list template
+├── prompts/                      # Prompting logic, grouped by layer
+│   ├── system_prompts/           # SLM, service and query-analyser system prompts
+│   └── user_prompts/             # Query-analyser and service user prompts
+├── src/                          # The "heart" of CoSMIC
+│   ├── models/                   # LLM provider classes and abstractions (Ollama, GPT, ...)
+│   ├── query_analyser/           # SLM-based query routing
+│   ├── services/                 # Specialised AI service implementations
+│   │   ├── chess/                # Chess service and sub-services
+│   │   ├── code_generation/      # Code generation service
+│   │   ├── memory/               # RAG, vector database and storage events
+│   │   ├── general_qa_answering/ # System information and fallback services
+│   │   └── academic_governance/  # Academic Governance service slot
+│   ├── cosmic_rag.env            # RAG configuration created by bins/setup.* (gitignored)
+│   ├── maps.py                   # SLM name -> instance mappings
+│   └── opensi_cosmic.py          # System orchestrator
+├── tests/                        # Runnable test harnesses
 ├── utils/                        # Helper functions and shared utility scripts
 ├── .dockerignore                 # Files excluded from Docker builds
 ├── .gitattributes                # Git configuration for path attributes
 ├── .gitignore                    # Files excluded from version control
+├── .gitmodules                   # Submodules for the tools under bins/
 ├── .python-version               # Pinned Python version for the project (beneficial to `uv` only)
 ├── CONTRIBUTING                  # Guidelines for project contributors
 ├── LICENSE                       # Project licensing information (MIT)
-├── OAuth.md                      # OAuth setup guide if using a hosting provider (TODO: to be moved inside `/docs` directory)
 ├── README.md                     # This's what you're seeing right now
-├── __init__.py                   # Package initialisation (mainly for relative import usages)
 ├── compose.yaml                  # Running CoSMIC in Docker environment by building Docker Compose file
-├── api.py                        # Entry point for FastAPI application (TODO: to be moved inside `/backend/cores` directory and use `main.py` as entry point instead)
+├── main.py                       # FastAPI entry point (`app` for uvicorn/FastAPI CLI)
 ├── pyproject.toml                # Project metadata and dependency definitions
-├── uv.lock                       # Pinned dependency lockfile via `uv`
-└── <other files>                 # Either depricated, not used anymore, or waiting for the new structure to be working on
+└── uv.lock                       # Pinned dependency lockfile via `uv`
 ```
 
 ---
@@ -108,71 +114,19 @@ Set-Location cosmic-core\
 ---
 # Understanding Configuration Setup
 
-## Docker Configuration
+## Configuration
 
-Create a `.env` file in the project root directory:
+Run the setup script once after cloning (see [Setup & Execution](#setup--execution)). It creates two configuration files from the templates in `examples/`:
 
-```bash
-# Linux/MacOS
-touch ./env
-```
-```ps1
-# Windows
-New-Item -Name .\.env -Type File
-```
+- `apis/cores/cosmic_cfg.env` — Ollama host, Qdrant URL, backend API URLs and CORS overrides.
+- `src/cosmic_rag.env` — embedding, retrieval and reranking settings.
 
-Then, edit `.env` and set required environment values in order to run CoSMIC. For example:
+Both are gitignored, so editing them never leaks secrets. A fresh clone still runs from the `examples/*.example.env` templates until those files exist.
 
-```bash
-# Linux/MacOS
-OLLAMA_SERVICE_NAME="<any name>"
-```
-```ps1
-# Windows
-OLLAMA_SERVICE_NAME="<any name>"
-```
+Secrets (`OPENAI_API_KEY`, `hf_token`, `hf_token_finetune`) and local overrides belong in the gitignored `apis/cores/cosmic_cfg.env` (or the shell/container environment). Nothing is read from a root `.env`.
 
-## Native Configuration
+Precedence is: shell/container environment > `apis/cores/cosmic_cfg.env` + `src/cosmic_rag.env` > `examples/*.example.env`.
 
-> [!TIP]
-> The `.env` file approach is recommended as it keeps your configuration
-> organised and prevents accidentally committing secrets to version control.
-> Make sure to add `.env` to your `.gitignore` file.
-
-### **Option 1: Create a `.env` file in the project root directory**
-
-```bash
-# Linux/MacOS
-touch ./env
-```
-```ps1
-# Windows
-New-Item -Name .\.env -Type File
-```
-
-Then, edit `.env` and set required environment values in order to run CoSMIC. For example:
-
-```bash
-# Linux/MacOS
-OLLAMA_SERVICE_NAME="<any name>"
-```
-```ps1
-# Windows
-OLLAMA_SERVICE_NAME="<any name>"
-```
-
-### **Option 2: Set environment variables directly in your shell**
-
-Alternatively, export variables directly before running the application:
-
-```bash
-# Linux/MacOS
-export OLLAMA_SERVICE_NAME="<any name>"
-```
-```ps1
-# Windows
-$env:OLLAMA_SERVICE_NAME="<any name>"
-```
 
 ---
 # Setup & Execution
@@ -202,6 +156,11 @@ $env:OLLAMA_SERVICE_NAME="<any name>"
 >           count: all
 >           capabilities: [gpu]
 > ```
+
+> [!IMPORTANT]
+> Run `./bins/setup.sh` (Linux/macOS) or `.\bins\setup.ps1` (Windows) once
+> before building. It initialises the git submodules, creates the runtime env
+> files and downloads the latest Stockfish prebuilt binary to `bins/Stockfish/src/stockfish`.
 
 Before you begin, ensure you have **Docker** and **Docker Compose** installed:
 
@@ -249,12 +208,17 @@ docker compose logs -f ollama # Rootless by default since Docker runs through a 
 
 Once containers are running, verify everything is healthy:
 
-1. **FastAPI**: [localhost:8000/docs](http://localhost:8000/docs)
+1. **FastAPI**: [localhost:3000/docs](http://localhost:3000/docs)
 2. **Ollama**: [localhost:11435](http://localhost:11435)
 
 ---
 
 ## Native Setup
+
+> [!IMPORTANT]
+> Run `./bins/setup.sh` (Linux/macOS) or `.\bins\setup.ps1` (Windows) once
+> after cloning. It initialises the git submodules, creates the runtime env
+> files and downloads the latest Stockfish prebuilt binary to `bins/Stockfish/src/stockfish`.
 
 Before you begin, ensure that you have `Python (v3.14+)`, `Ollama` and `uv` running on your system:
 
@@ -341,10 +305,6 @@ Currently, **CoSMIC** provides 5 core services, each discoverable via the **Serv
 | **Academic Governance** | Document-grounded QA over academic governance materials                         |
 
 
----
-# OAuth Implementation
-
-OAuth authentication can be integrated to enhance security and manage user access. For detailed setup instructions, refer to the [OAuth guide](./OAuth.md).
 
 ---
 # Conventions

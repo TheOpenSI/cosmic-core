@@ -4,8 +4,6 @@ from datetime import (
     timezone
 )
 import os
-from pathlib import Path
-from dotenv import load_dotenv
 from sys import (
     exit,
     stdout
@@ -29,25 +27,26 @@ from typing import Any
 
 
 ### Internal modules ###
-from .services.llms import llm as llm_instances
-from .maps import LLM_INSTANCE_DICT
-from .services.vector_database import VectorDatabase
-from .services.qa import QABase
-from .services.rag import RAGBase
-from .services.system_information_service import SystemInformationService
-from .services.fallback_service import FallbackService
-from ..modules.chess.chess_qa_puzzle import PuzzleAnalyse
-from ..modules.chess.chess_qa_quality import QualityEval
-from ..modules.chess.chess_genfen import FENGenerator
-from ..modules.chess.chess_gencot import CotGenerator
-from ..modules.code_generation.code_generation import CodeGenerator
-from ..utils.log_tool import set_color
-from ..utils.module import get_instance
-from .query_analyser.query_analyser import QueryAnalyser
+from src.models import llms as llm_instances
+from src.maps import LLM_INSTANCE_DICT
+from src.services.memory.vector_database import VectorDatabase
+from src.services.qa import QABase
+from src.services.memory.rag import RAGBase
+from src.services.general_qa_answering.system_information_service import SystemInformationService
+from src.services.general_qa_answering.fallback_service import FallbackService
+from src.services.chess.puzzle_analyser import PuzzleAnalyse
+from src.services.chess.quality_eval import QualityEval
+from src.services.chess.fen_generator import FENGenerator
+from src.services.chess.cot_generator import CotGenerator
+from src.services.code_generation.code_generation import CodeGenerator
+from src.query_analyser.query_analyser import QueryAnalyser
+from utils.env import load_env
+from utils.log_tool import set_color
+from utils.module import get_instance
 
 
-# Load the project-root .env into os.environ so services can read their config.
-load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+# Load the runtime/example env files before building any service.
+load_env()
 
 
 # Shared cache for the services registry
@@ -144,7 +143,7 @@ class OpenSICoSMIC:
         self.general_slm = general_slm
 
         if self.general_slm == "":
-            # Match model detection format in `src/services/llms/LLMBase.py`.
+            # Match model detection format in `src/models/base.py`.
             # For example: "ollama:qwen2.5:7b"
             self.general_slm = f"{self.general_config_data["provider"]}:{self.general_config_data["model"]}"
 
@@ -167,7 +166,7 @@ class OpenSICoSMIC:
         self.qa_slm = qa_slm
 
         if self.qa_slm == "":
-            # Match model detection format in `src/services/llms/LLMBase.py`.
+            # Match model detection format in `src/models/base.py`.
             # For example: "ollama:qwen2.5:7b"
             self.qa_slm = f"{self.qa_config_data["provider"]}:{self.qa_config_data["model"]}"
 
@@ -422,7 +421,7 @@ class OpenSICoSMIC:
             ) = self.qa( # pyright: ignore[reportOptionalCall]
                 query=question,
                 services=self.get_services(), # pyright: ignore[reportArgumentType]
-                context=context, # Chat history context (see `backend/routers/cosmic.py`)
+                context=context, # Chat history context (see `apis/routers/regulars/cosmic.py`)
                 is_rag=True,
                 verbose=False,
                 user_id=call_user_id,
@@ -534,10 +533,10 @@ class OpenSICoSMIC:
             answer = ""
 
             if count == 1:
-                answer = f"Since '{llm_name_list[0]} is' used, please add valid OPENAI_API_KEY in .env."
+                answer = f"Since '{llm_name_list[0]} is' used, please add a valid OPENAI_API_KEY to apis/cores/cosmic_cfg.env."
 
             elif count == 2:
-                answer = f"Since '{llm_name_list[0]} and {llm_name_list[1]} are' used, please add valid OPENAI_API_KEY in .env."
+                answer = f"Since '{llm_name_list[0]} and {llm_name_list[1]} are' used, please add a valid OPENAI_API_KEY to apis/cores/cosmic_cfg.env."
 
         else:
             answer = ""

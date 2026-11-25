@@ -1,8 +1,12 @@
 .git/
 .venv/
 docker/
-examples/
 .dockerignore
+.env
+apis/cores/cosmic_cfg.env
+src/cosmic_rag.env
+bins/Fen-To-Board-Image/
+tests/
 .gitattributes
 .gitignore
 CONTRIBUTING

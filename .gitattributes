@@ -144,6 +144,3 @@ uv.lock           text -diff
 
 # Ignore files (like .npmignore or .gitignore)
 *.*ignore         text
-
-# Third-party dependencies (do not normalize line endings)
-third_party/**    -text

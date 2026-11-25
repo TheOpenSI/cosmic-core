@@ -1,9 +1,0 @@
-[tool.poetry]
-name = "fenToBoardImagetest"
-version = "1.0.0"
-description = ""
-authors = ["red"]
-[tool.poetry.dependencies]
-python = "^3.7"
-pillow = "9.0.0"
-fenToBoardImage = {path = "../"}

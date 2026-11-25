@@ -3,7 +3,6 @@ from datetime import (
     datetime,
     timezone
 )
-from pathlib import Path
 import uuid
 
 
@@ -12,22 +11,22 @@ from typing import Any
 
 
 ### Internal modules ###
-from . import chess as chess_instances
-from .base import ServiceBase
-from .document_index import DocumentMetadata
-from .llms.LLMBase import LLMBase
-from .rag import RAGBase
-from .attachment_context import (
+from src.models.base import LLMBase
+from src.services import chess as chess_instances
+from src.services.base import ServiceBase
+from src.services.code_generation.code_generation import CodeGenerator
+from src.services.general_qa_answering.fallback_service import FallbackService
+from src.services.general_qa_answering.system_information_service import SystemInformationService
+from src.services.memory.attachment_context import (
     AttachmentContext,
     AttachmentResolver,
     MISSING_FILE_LLM_NOTE,
     MISSING_FILE_USER_NOTE,
     unused_file_note
 )
-from ...modules.code_generation.code_generation import CodeGenerator
-from .system_information_service import SystemInformationService
-from .fallback_service import FallbackService
-from ...utils.log_tool import set_color
+from src.services.memory.document_index import DocumentMetadata
+from src.services.memory.rag import RAGBase
+from utils.log_tool import set_color
 
 
 # System prompt (prompts/document_qa.txt) for questions answered from a file.
@@ -144,13 +143,7 @@ class QABase(ServiceBase):
         Returns:
             str: Absolute path to the Stockfish binary.
         """
-        return str(
-            Path(__file__).resolve(strict=True).parent.parent.parent.joinpath(
-                "third_party",
-                "stockfish",
-                "stockfish-ubuntu-x86-64-avx2"
-            )
-        )
+        return str(chess_instances.STOCKFISH_BINARY_PATH)
 
 
     def _handle_chess_service(
