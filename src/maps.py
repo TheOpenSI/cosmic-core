@@ -1,3 +1,12 @@
+### Core modules ###
+
+
+### Type hint modules ###
+
+
+### Internal modules ###
+
+
 LLM_MODEL_DICT: dict[str, str] = {
     "mistral-7b-v0.1": "mistralai/Mistral-7B-v0.1",
     "mistral-7b-instruct-v0.1": "mistralai/Mistral-7B-Instruct-v0.1",

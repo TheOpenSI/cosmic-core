@@ -2,11 +2,11 @@ name: OpenSI-CoSMIC
 
 services:
   ollama:
-    container_name: ${OLLAMA_SERVICE_NAME} # NOTE: prevent issues when working same Ollama container in shared VM
+    container_name: ${OLLAMA_SERVICE_NAME:-cosmic-ollama} # NOTE: prevent issues when working same Ollama container in shared VM
     restart: unless-stopped
     build:
       context: ./
-      dockerfile: ./docker/dockerfiles/ollama.Dockerfile
+      dockerfile: ./docker/ollama/ollama.Dockerfile
     volumes:
       - type: volume
         source: cosmic-ollama-data
@@ -48,7 +48,7 @@ services:
     # image: opensicbr/cosmic:latest
     build:
       context: ./
-      dockerfile: ./docker/dockerfiles/fastapi.Dockerfile
+      dockerfile: ./docker/fastapi/fastapi.Dockerfile
     deploy:
       resources:
         reservations:
@@ -104,7 +104,7 @@ services:
     restart: unless-stopped
     build:
       context: ./
-      dockerfile: ./docker/dockerfiles/qdrant.Dockerfile
+      dockerfile: ./docker/qdrant/qdrant.Dockerfile
     container_name: cosmic-qdrant
     ports:
       - name: cosmic-qdrant-web

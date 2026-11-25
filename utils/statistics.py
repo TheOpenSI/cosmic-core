@@ -11,14 +11,15 @@ from pandas import (
 )
 
 
-### Type hints ###
+### Type hint modules ###
 from pandas import DataFrame
 
 
 ### Internal modules ###
+from .env import PROJECT_ROOT
 
 
-statistic_dir: Path = (Path(__file__).resolve(strict=True).parent.parent.joinpath("data", "statistics"))
+statistic_dir: Path = PROJECT_ROOT.joinpath("data", "statistics")
 statistic_dict: dict[str, int | str | float | datetime] = {
     # NOTE: these are just example data.
     "user_id": 0,

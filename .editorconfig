@@ -21,3 +21,6 @@ trim_trailing_whitespace = false
 [*.txt]
 indent_style = unset
 trim_trailing_whitespace = unset
+
+[*.{bat,cmd,ps1}]
+end_of_line = crlf

@@ -4,8 +4,6 @@ from datetime import (
     timezone
 )
 import os
-from pathlib import Path
-from dotenv import load_dotenv
 from sys import (
     exit,
     stdout
@@ -24,30 +22,31 @@ from httpx import (
 from pprint import pp
 
 
-### Type hints ###
+### Type hint modules ###
 from typing import Any
 
 
 ### Internal modules ###
-from .services.llms import llm as llm_instances
+from . import models as llm_instances
 from .maps import LLM_INSTANCE_DICT
-from .services.vector_database import VectorDatabase
-from .services.qa import QABase
-from .services.rag import RAGBase
-from .services.system_information_service import SystemInformationService
-from .services.fallback_service import FallbackService
-from ..modules.chess.chess_qa_puzzle import PuzzleAnalyse
-from ..modules.chess.chess_qa_quality import QualityEval
-from ..modules.chess.chess_genfen import FENGenerator
-from ..modules.chess.chess_gencot import CotGenerator
-from ..modules.code_generation.code_generation import CodeGenerator
+from .rag.vector_database import VectorDatabase
+from .rag.base import RAGBase
+from .qa import QABase
+from .services.system_information.system_information import SystemInformationService
+from .services.fallback.fallback import FallbackService
+from .services.chess.puzzle_analyser import PuzzleAnalyse
+from .services.chess.quality_eval import QualityEval
+from .services.chess.fen_generator import FENGenerator
+from .services.chess.cot_generator import CotGenerator
+from .services.code_generation.code_generation import CodeGenerator
+from .query_analyser.query_analyser import QueryAnalyser
+from ..utils.env import load_env
 from ..utils.log_tool import set_color
 from ..utils.module import get_instance
-from .query_analyser.query_analyser import QueryAnalyser
 
 
-# Load the project-root .env into os.environ so services can read their config.
-load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+# Load the runtime/example env files before building any service.
+load_env()
 
 
 # Shared cache for the services registry
@@ -144,7 +143,7 @@ class OpenSICoSMIC:
         self.general_slm = general_slm
 
         if self.general_slm == "":
-            # Match model detection format in `src/services/llms/LLMBase.py`.
+            # Match model detection format in `src/models/base.py`.
             # For example: "ollama:qwen2.5:7b"
             self.general_slm = f"{self.general_config_data["provider"]}:{self.general_config_data["model"]}"
 
@@ -167,7 +166,7 @@ class OpenSICoSMIC:
         self.qa_slm = qa_slm
 
         if self.qa_slm == "":
-            # Match model detection format in `src/services/llms/LLMBase.py`.
+            # Match model detection format in `src/models/base.py`.
             # For example: "ollama:qwen2.5:7b"
             self.qa_slm = f"{self.qa_config_data["provider"]}:{self.qa_config_data["model"]}"
 
@@ -395,7 +394,7 @@ class OpenSICoSMIC:
 
             # Resolve which memory scopes are active for retrieval
             _services = self.get_services(raw=True)
-            global_service_names = [
+            system_service_names = [
                 s["name"] for s in _services
                 if s.get("status") is True
                 and s.get("memory_capability") is True
@@ -422,12 +421,12 @@ class OpenSICoSMIC:
             ) = self.qa( # pyright: ignore[reportOptionalCall]
                 query=question,
                 services=self.get_services(), # pyright: ignore[reportArgumentType]
-                context=context, # Chat history context (see `backend/routers/cosmic.py`)
+                context=context, # Chat history context (see `apis/routers/regulars/cosmic.py`)
                 is_rag=True,
                 verbose=False,
                 user_id=call_user_id,
                 session_id=session_id,
-                global_service_names=global_service_names,
+                system_service_names=system_service_names,
                 memory_service_active=memory_service_active,
                 has_files=has_files,
                 file_refs=file_refs, # pyright: ignore[reportUnknownArgumentType]
@@ -534,10 +533,10 @@ class OpenSICoSMIC:
             answer = ""
 
             if count == 1:
-                answer = f"Since '{llm_name_list[0]} is' used, please add valid OPENAI_API_KEY in .env."
+                answer = f"Since '{llm_name_list[0]} is' used, please add a valid OPENAI_API_KEY to apis/cores/cosmic_cfg.env."
 
             elif count == 2:
-                answer = f"Since '{llm_name_list[0]} and {llm_name_list[1]} are' used, please add valid OPENAI_API_KEY in .env."
+                answer = f"Since '{llm_name_list[0]} and {llm_name_list[1]} are' used, please add a valid OPENAI_API_KEY to apis/cores/cosmic_cfg.env."
 
         else:
             answer = ""

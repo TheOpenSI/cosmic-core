@@ -1,0 +1,6 @@
+[submodule "bins/Fen-To-Board-Image"]
+	path = bins/Fen-To-Board-Image
+	url = https://github.com/ReedKrawiec/Fen-To-Board-Image.git
+[submodule "bins/Stockfish"]
+	path = bins/Stockfish
+	url = https://github.com/official-stockfish/Stockfish.git

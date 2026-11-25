@@ -1,3 +1,12 @@
+### Core modules ###
+
+
+### Type hint modules ###
+
+
+### Internal modules ###
+
+
 class BCOLORS:
     HEADER:     str = "\033[95m"
     OKBLUE:     str = "\033[94m"

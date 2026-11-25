@@ -1,3 +1,12 @@
+### Core modules ###
+
+
+### Type hint modules ###
+
+
+### Internal modules ###
+
+
 NUM2WORD_DICT: dict[int, str] = {
     1: "One",
     2: "Two",

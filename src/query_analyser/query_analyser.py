@@ -5,16 +5,16 @@ from pathlib import Path
 from re import search
 
 
-### Type hints ###
+### Type hint modules ###
 
 
 ### Internal modules ###
-from ..services.llms import llm as llm_instances
-from ..query_analyser import user_prompt as query_user_prompt_instances
+from ...prompts.user_prompts.query_analyser import prompts as query_user_prompt_instances
+from .. import models as llm_instances
 from ..maps import LLM_INSTANCE_DICT
+from ...utils.env import PROJECT_ROOT
 from ...utils.log_tool import set_color
 from ...utils.module import get_instance
-
 
 
 class QueryAnalyser:
@@ -42,7 +42,7 @@ class QueryAnalyser:
                 use cuda or cpu for LLM. Defaults to "cuda".
         """
         # Set config.
-        self.root = Path(__file__).resolve(strict=True).parent.parent.parent
+        self.root = PROJECT_ROOT
         self.device = device
 
         # Build LLM instance from class defined in .py if llm_name is supported.

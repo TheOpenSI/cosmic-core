@@ -3,8 +3,9 @@
   "Exclude": [
     "^CONTRIBUTING$",
     "^LICENSE$",
+    "^\\.gitmodules$",
     "(^|/)\\.venv/",
-    "(^|/)third_party/",
+    "(^|/)bins/(Fen-To-Board-Image|Stockfish)/",
     "\\.csv$",
     "\\.ipynb$"
   ],

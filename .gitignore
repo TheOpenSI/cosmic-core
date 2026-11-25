@@ -287,9 +287,9 @@ __marimo__/
 data/*
 !data/statistics/
 logs/
-third_party/
+# The Stockfish binary is fetched into the Stockfish submodule's src/stockfish;
+# that submodule's own .gitignore keeps it out of version control.
 database/
-./scripts/configs/config_updated.yaml
 
 # Whitelists
 !examples/*.env*
