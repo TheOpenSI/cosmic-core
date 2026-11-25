@@ -19,14 +19,14 @@ from typing import Any
 
 
 ### Internal modules ###
-from apis.cores.tags import APITag
-from src.services.memory.document_index import (
+from ...cores.tags import APITag
+from ....src.rag.document_index import (
     DocumentIndex,
     DocumentMetadata,
     compute_content_hash
 )
-from src.services.memory.vector_database import VectorDatabase
-from utils.log_tool import set_color
+from ....src.rag.vector_database import VectorDatabase
+from ....utils.log_tool import set_color
 
 
 # Embeddable file types

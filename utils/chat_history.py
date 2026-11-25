@@ -2,7 +2,7 @@
 
 
 ### Type hints ###
-from apis.types.schemas.chatboxes import ChatHistorySchemaUpdate
+from ..apis.types.schemas.chatboxes import ChatHistorySchemaUpdate
 
 
 ### Internal modules ###

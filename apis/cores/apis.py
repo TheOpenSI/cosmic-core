@@ -9,12 +9,12 @@ from typing import Any
 
 
 ### Internal modules ###
-from apis.cores.configs import get_cors_allow_origins
-from apis.routers.apis import memories, models
-from apis.routers.regulars import cosmic
-from src.opensi_cosmic import OpenSICoSMIC
-from src.services.memory.document_index import DocumentIndex
-from src.services.memory.storage_events import StorageEventWatcher
+from .configs import get_cors_allow_origins
+from ..routers.apis import memories, models
+from ..routers.regulars import cosmic
+from ...src.opensi_cosmic import OpenSICoSMIC
+from ...src.rag.document_index import DocumentIndex
+from ...src.rag.storage_events import StorageEventWatcher
 
 
 

@@ -10,12 +10,12 @@ from numpy import (
 
 
 ### Internal modules ###
-from prompts import system_prompts as system_prompter_instances
-from prompts import user_prompts as user_prompter_instances
-from src.services import chess as chess_instances
-from src.services.qa import QABase
-from utils.log_tool import set_color
-from utils.module import get_instance
+from ....prompts import system_prompts as system_prompter_instances
+from ....prompts import user_prompts as user_prompter_instances
+from ..general_qa_answering.qa import QABase
+from .chess import GPTFENNextMove, StockfishFENNextMove
+from ....utils.log_tool import set_color
+from ....utils.module import get_instance
 
 
 class PuzzleAnalyse(QABase):
@@ -47,10 +47,10 @@ class PuzzleAnalyse(QABase):
 
         # Use GPT or Stockfish to predict next move given a chess FEN.
         if next_move_predict_backend == "gpt":
-            self.fen_next_move_predictor = chess_instances.GPTFENNextMove()
+            self.fen_next_move_predictor = GPTFENNextMove()
 
         else:
-            self.fen_next_move_predictor = chess_instances.StockfishFENNextMove(
+            self.fen_next_move_predictor = StockfishFENNextMove(
                 binary_path=binary_path
             )
 

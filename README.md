@@ -13,52 +13,76 @@
 cosmic-core/
 ├── apis/                         # FastAPI application layer
 │   ├── cores/                    # App setup, dependencies, configs and API tags
-│   │   └── apis.py               # FastAPI app + lifespan
-│   ├── routers/                  # CoSMIC API & non-API endpoints
+│   │   ├── apis.py               # FastAPI app + lifespan
+│   │   ├── configs.py            # Env loading + CORS configuration
+│   │   ├── db.py                 # OpenSICoSMIC FastAPI dependency
+│   │   ├── tags.py               # API tags
+│   │   └── cosmic_cfg.env        # Generated config (gitignored)
+│   ├── routers/
 │   │   ├── apis/                 # Versioned API endpoints (memory, models)
-│   │   └── regulars/             # Regular endpoints (chat/query)
-│   └── types/schemas/            # Shared request/response schemas (chatboxes)
+│   │   └── regulars/cosmic.py    # Chat/query endpoint
+│   └── types/schemas/chatboxes.py
 ├── bins/                         # Clone/setup helpers and third-party tools
 │   ├── Fen-To-Board-Image/       # Git submodule (not referenced by runtime code yet)
-│   ├── Stockfish/                # Git submodule; setup fetches the binary into src/stockfish
-│   ├── setup.sh                  # Linux/macOS bootstrap (submodules, envs, Stockfish)
+│   ├── Stockfish/                # Git submodule; setup fetches src/stockfish
+│   ├── setup.sh                  # Linux/macOS bootstrap
 │   └── setup.ps1                 # Windows bootstrap
-├── data/                         # Datasets and the on-disk memory store (data/memories)
-├── docker/                       # Containerisation resources
-│   ├── fastapi/                  # FastAPI Dockerfile
-│   ├── ollama/                   # Ollama Dockerfile
-│   └── qdrant/                   # Qdrant Dockerfile
+├── data/                         # Datasets and the on-disk memory store
+├── docker/                       # Containerisation resources per service
+│   ├── fastapi/
+│   ├── ollama/
+│   └── qdrant/
 ├── docs/                         # Repository conventions and documentation
 ├── examples/                     # Example env files and the file-list template
 ├── prompts/                      # Prompting logic, grouped by layer
-│   ├── system_prompts/           # SLM, service and query-analyser system prompts
-│   └── user_prompts/             # Query-analyser and service user prompts
+│   ├── system_prompts/
+│   │   ├── models/               # Per-model-family system prompts (base.py + families)
+│   │   ├── services/             # Per-service system prompts and persona assets
+│   │   └── query_analyser/       # Query-analyser system prompt slot
+│   └── user_prompts/
+│       ├── models/base.py        # Shared user prompt base
+│       ├── services/             # Per-service user prompts
+│       └── query_analyser/       # Query-analyser user prompts
 ├── src/                          # The "heart" of CoSMIC
-│   ├── models/                   # LLM provider classes and abstractions (Ollama, GPT, ...)
+│   ├── models/                   # LLM providers (base.py + model families)
+│   │   ├── mistral/
+│   │   ├── gemma/
+│   │   ├── chatgpt/
+│   │   └── ollama/
+│   ├── tokenise/                 # Tokenising methods (base.py + model families)
+│   ├── rag/                      # Retrieval-augmented generation and vector storage
+│   │   ├── base.py
+│   │   ├── vector_database.py
+│   │   ├── document_index.py
+│   │   ├── storage_events.py
+│   │   └── attachment_context.py
 │   ├── query_analyser/           # SLM-based query routing
-│   ├── services/                 # Specialised AI service implementations
-│   │   ├── chess/                # Chess service and sub-services
-│   │   ├── code_generation/      # Code generation service
-│   │   ├── memory/               # RAG, vector database and storage events
-│   │   ├── general_qa_answering/ # System information and fallback services
-│   │   └── academic_governance/  # Academic Governance service slot
-│   ├── cosmic_rag.env            # RAG configuration created by bins/setup.* (gitignored)
+│   ├── services/                 # Specialised AI services, one directory each
+│   │   ├── base.py
+│   │   ├── chess/
+│   │   ├── code_generation/
+│   │   ├── general_qa_answering/
+│   │   ├── fallback/
+│   │   ├── system_information/
+│   │   └── academic_governance/
+│   ├── cosmic_core.env           # Generated core/RAG config (gitignored)
 │   ├── maps.py                   # SLM name -> instance mappings
 │   └── opensi_cosmic.py          # System orchestrator
 ├── tests/                        # Runnable test harnesses
 ├── utils/                        # Helper functions and shared utility scripts
-├── .dockerignore                 # Files excluded from Docker builds
-├── .gitattributes                # Git configuration for path attributes
-├── .gitignore                    # Files excluded from version control
-├── .gitmodules                   # Submodules for the tools under bins/
-├── .python-version               # Pinned Python version for the project (beneficial to `uv` only)
-├── CONTRIBUTING                  # Guidelines for project contributors
-├── LICENSE                       # Project licensing information (MIT)
-├── README.md                     # This's what you're seeing right now
-├── compose.yaml                  # Running CoSMIC in Docker environment by building Docker Compose file
-├── main.py                       # FastAPI entry point (`app` for uvicorn/FastAPI CLI)
-├── pyproject.toml                # Project metadata and dependency definitions
-└── uv.lock                       # Pinned dependency lockfile via `uv`
+├── __init__.py                   # Package root (enables relative imports)
+├── .dockerignore
+├── .gitattributes
+├── .gitignore
+├── .gitmodules
+├── .python-version
+├── CONTRIBUTING
+├── LICENSE
+├── README.md
+├── compose.yaml
+├── main.py                       # API entry point (relative imports + native fallback)
+├── pyproject.toml
+└── uv.lock
 ```
 
 ---
@@ -119,13 +143,13 @@ Set-Location cosmic-core\
 Run the setup script once after cloning (see [Setup & Execution](#setup--execution)). It creates two configuration files from the templates in `examples/`:
 
 - `apis/cores/cosmic_cfg.env` — Ollama host, Qdrant URL, backend API URLs and CORS overrides.
-- `src/cosmic_rag.env` — embedding, retrieval and reranking settings.
+- `src/cosmic_core.env` — embedding, retrieval and reranking settings.
 
 Both are gitignored, so editing them never leaks secrets. A fresh clone still runs from the `examples/*.example.env` templates until those files exist.
 
 Secrets (`OPENAI_API_KEY`, `hf_token`, `hf_token_finetune`) and local overrides belong in the gitignored `apis/cores/cosmic_cfg.env` (or the shell/container environment). Nothing is read from a root `.env`.
 
-Precedence is: shell/container environment > `apis/cores/cosmic_cfg.env` + `src/cosmic_rag.env` > `examples/*.example.env`.
+Precedence is: shell/container environment > `apis/cores/cosmic_cfg.env` + `src/cosmic_core.env` > `examples/*.example.env`.
 
 
 ---

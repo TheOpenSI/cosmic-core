@@ -20,20 +20,20 @@ from codecarbon import EmissionsTracker
 
 ### Type hints ###
 from typing import Any
-from apis.cores.tags import APITag
+from ...cores.tags import APITag
 
 
 ### Internal modules ###
-from apis.cores.dependencies import get_opensi_cosmic
-from apis.types.schemas.chatboxes import (
+from ...cores.db import get_opensi_cosmic
+from ...types.schemas.chatboxes import (
     ChatHistorySchema,
     ChatHistorySchemaUpdate,
     ChatSessionPayload,
     LLM_ROLE
 )
-from src.opensi_cosmic import OpenSICoSMIC
-from utils.chat_history import build_context_from_chat_history
-from utils.log_tool import set_color
+from ....src.opensi_cosmic import OpenSICoSMIC
+from ....utils.chat_history import build_context_from_chat_history
+from ....utils.log_tool import set_color
 
 
 

@@ -12,11 +12,11 @@ from pydantic import BaseModel
 
 
 ### Type hints ###
-from apis.cores.tags import APITag
+from ...cores.tags import APITag
 
 
 ### Internal modules ###
-from src.models.ollama import Ollama
+from ....src.models.ollama.ollama import Ollama
 
 
 router: APIRouter = APIRouter(

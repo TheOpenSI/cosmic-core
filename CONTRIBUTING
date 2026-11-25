@@ -24,8 +24,8 @@ We will respond in time and close the ticket once it is solved.
 Our project resource code is mainly distributed in [apis](apis), [src](src), [prompts](prompts), and [utils](utils).
 
 - **API layer** ([apis](apis)) contains the FastAPI application, its routers and the shared request/response schemas.
-- **Source code** ([src](src)) contains the system entry, LLM provider classes and the implementation of each service under [src/services](src/services).
-- **Prompts** ([prompts](prompts)) contains the system and user prompts, grouped by SLM, service and query analyser.
+- **Source code** ([src](src)) contains the system entry, LLM providers and tokenisers under [src/models](src/models) and [src/tokenise](src/tokenise), retrieval under [src/rag](src/rag), and the implementation of each service under [src/services](src/services).
+- **Prompts** ([prompts](prompts)) contains the system and user prompts, grouped by model family, service and query analyser.
 - **Tools** ([utils](utils)) contains shared tool/utility files and individual such files for each service.
 
 To develop a new service for our project, please create a pull request for each new service.

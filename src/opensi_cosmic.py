@@ -27,22 +27,22 @@ from typing import Any
 
 
 ### Internal modules ###
-from src.models import llms as llm_instances
-from src.maps import LLM_INSTANCE_DICT
-from src.services.memory.vector_database import VectorDatabase
-from src.services.qa import QABase
-from src.services.memory.rag import RAGBase
-from src.services.general_qa_answering.system_information_service import SystemInformationService
-from src.services.general_qa_answering.fallback_service import FallbackService
-from src.services.chess.puzzle_analyser import PuzzleAnalyse
-from src.services.chess.quality_eval import QualityEval
-from src.services.chess.fen_generator import FENGenerator
-from src.services.chess.cot_generator import CotGenerator
-from src.services.code_generation.code_generation import CodeGenerator
-from src.query_analyser.query_analyser import QueryAnalyser
-from utils.env import load_env
-from utils.log_tool import set_color
-from utils.module import get_instance
+from . import models as llm_instances
+from .maps import LLM_INSTANCE_DICT
+from .rag.vector_database import VectorDatabase
+from .rag.base import RAGBase
+from .services.general_qa_answering.qa import QABase
+from .services.system_information.system_information import SystemInformationService
+from .services.fallback.fallback import FallbackService
+from .services.chess.puzzle_analyser import PuzzleAnalyse
+from .services.chess.quality_eval import QualityEval
+from .services.chess.fen_generator import FENGenerator
+from .services.chess.cot_generator import CotGenerator
+from .services.code_generation.code_generation import CodeGenerator
+from .query_analyser.query_analyser import QueryAnalyser
+from ..utils.env import load_env
+from ..utils.log_tool import set_color
+from ..utils.module import get_instance
 
 
 # Load the runtime/example env files before building any service.

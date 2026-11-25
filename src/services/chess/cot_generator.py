@@ -7,10 +7,10 @@ from pandas import read_csv
 
 
 ### Internal modules ###
-from prompts import user_prompts as user_prompt_instances
-from src.models.llms import GPT
-from src.services.chess.chess import ChessBase
-from utils.log_tool import set_color
+from ....prompts import user_prompts as user_prompt_instances
+from ...models.chatgpt.chatgpt import GPT
+from .chess import ChessBase
+from ....utils.log_tool import set_color
 
 
 class CotGenerator(ChessBase):

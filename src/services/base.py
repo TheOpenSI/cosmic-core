@@ -5,7 +5,7 @@
 
 
 ### Internal modules ###
-from utils.env import PROJECT_ROOT
+from ...utils.env import PROJECT_ROOT
 
 
 class ServiceBase:

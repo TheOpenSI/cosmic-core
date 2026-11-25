@@ -11,11 +11,11 @@ PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 # keep a fresh clone runnable. Secrets belong in the runtime config file.
 ENV_FILES: tuple[Path, ...] = (
     PROJECT_ROOT / "apis" / "cores" / "cosmic_cfg.env",
-    PROJECT_ROOT / "src" / "cosmic_rag.env",
+    PROJECT_ROOT / "src" / "cosmic_core.env",
 )
 EXAMPLE_ENV_FILES: tuple[Path, ...] = (
     PROJECT_ROOT / "examples" / "cosmic_cfg.example.env",
-    PROJECT_ROOT / "examples" / "cosmic_rag.example.env",
+    PROJECT_ROOT / "examples" / "cosmic_core.example.env",
 )
 
 

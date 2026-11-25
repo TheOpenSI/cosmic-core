@@ -13,13 +13,13 @@ from transformers import BitsAndBytesConfig
 
 
 ### Internal modules ###
-from prompts import system_prompts as system_prompt_instances
-from prompts import user_prompts as user_prompt_instances
-from src.maps import LLM_INSTANCE_DICT
-from src.models import tokenizer as tokenizer_instances
-from src.services.base import ServiceBase
-from utils.env import PROJECT_ROOT
-from utils.module import get_instance
+from ...prompts import system_prompts as system_prompt_instances
+from ...prompts import user_prompts as user_prompt_instances
+from ..maps import LLM_INSTANCE_DICT
+from .. import tokenise as tokeniser_instances
+from ..services.base import ServiceBase
+from ...utils.env import PROJECT_ROOT
+from ...utils.module import get_instance
 
 
 class LLMBase(ServiceBase):
@@ -106,7 +106,7 @@ class LLMBase(ServiceBase):
 
         # Build tokenizer by LLM type.
         self.tokenizer = get_instance(
-            tokenizer_instances,
+            tokeniser_instances,
             llm_instance_name
         )(llm_name=llm_name, device=self.device)
 

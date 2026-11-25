@@ -29,7 +29,7 @@ try {
     }
 
     Copy-IfMissing "examples/cosmic_cfg.example.env" "apis/cores/cosmic_cfg.env"
-    Copy-IfMissing "examples/cosmic_rag.example.env" "src/cosmic_rag.env"
+    Copy-IfMissing "examples/cosmic_core.example.env" "src/cosmic_core.env"
 
     Write-Output "==> Checking the Stockfish binary..."
     if (Test-Path $StockfishBin) {
@@ -46,7 +46,7 @@ try {
             Write-Output "Downloading: [$StockfishUrl]"
             Invoke-WebRequest -Uri $StockfishUrl -OutFile (Join-Path $TempDir "stockfish.tar.gz")
             tar --extract --gzip --file (Join-Path $TempDir "stockfish.tar.gz") --directory $TempDir
-            # ponytail: prebuilt linux-x86-64 universal binary; build from bins/Stockfish/src when a custom ARCH is needed.
+            # Prebuilt linux-x86-64 universal binary; build from bins/Stockfish/src when a custom ARCH is needed.
             Copy-Item -Path (Join-Path $TempDir "stockfish/$StockfishBinary") -Destination $StockfishBin
             Write-Output "Installed: [$StockfishBin]"
         } finally {
@@ -56,7 +56,7 @@ try {
 
     Write-Output "==> Setup complete!"
     Write-Output "IMPORTANT:"
-    Write-Output " 1. Review [apis/cores/cosmic_cfg.env] and [src/cosmic_rag.env]."
+    Write-Output " 1. Review [apis/cores/cosmic_cfg.env] and [src/cosmic_core.env]."
     Write-Output " 2. Put secrets (OPENAI_API_KEY, hf_token, hf_token_finetune) in [apis/cores/cosmic_cfg.env]."
 } finally {
     Pop-Location

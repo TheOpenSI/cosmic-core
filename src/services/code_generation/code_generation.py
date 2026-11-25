@@ -11,7 +11,7 @@ from requests import (
 
 
 ### Internal modules ###
-from src.services.base import ServiceBase
+from ..base import ServiceBase
 
 
 class CodeGenerator(ServiceBase):

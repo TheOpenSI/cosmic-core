@@ -12,10 +12,10 @@ from stockfish import Stockfish
 
 
 ### Internal modules ###
-from src.models.llms import GPT
-from src.services.base import ServiceBase
-from utils.env import PROJECT_ROOT
-from utils.log_tool import set_color
+from ...models.chatgpt.chatgpt import GPT
+from ..base import ServiceBase
+from ....utils.env import PROJECT_ROOT
+from ....utils.log_tool import set_color
 
 
 STOCKFISH_BINARY_PATH: Path = PROJECT_ROOT.joinpath(

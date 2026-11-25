@@ -1,4 +1,6 @@
 ### Core modules ###
+import sys
+from pathlib import Path
 from pandas import read_csv
 from numpy import mean
 
@@ -7,10 +9,15 @@ from numpy import mean
 
 
 ### Internal modules ###
-from src.opensi_cosmic import OpenSICoSMIC
-from src.services.qa import QABase
-from utils.env import PROJECT_ROOT
-from utils.log_tool import set_color
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+import main  # noqa: F401  (registers the package for a top-level import)
+from cosmic_core.src.opensi_cosmic import OpenSICoSMIC
+from cosmic_core.src.services.general_qa_answering.qa import QABase
+from cosmic_core.utils.log_tool import set_color
 
 
 class QABaseTest(QABase):

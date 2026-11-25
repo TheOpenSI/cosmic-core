@@ -34,7 +34,7 @@ safe_copy() {
 }
 
 safe_copy "examples/cosmic_cfg.example.env" "apis/cores/cosmic_cfg.env"
-safe_copy "examples/cosmic_rag.example.env" "src/cosmic_rag.env"
+safe_copy "examples/cosmic_core.example.env" "src/cosmic_core.env"
 
 echo "==> Checking the Stockfish binary..."
 if [ -x "$STOCKFISH_BIN" ]; then
@@ -52,7 +52,7 @@ else
     echo "Downloading: [$STOCKFISH_URL]"
     curl --fail --location --silent --show-error "$STOCKFISH_URL" --output "$TMP_DIR/stockfish.tar.gz"
     tar --extract --gzip --file "$TMP_DIR/stockfish.tar.gz" --directory "$TMP_DIR"
-    # ponytail: prebuilt linux-x86-64 universal binary; build from bins/Stockfish/src when a custom ARCH is needed.
+    # Prebuilt linux-x86-64 universal binary; build from bins/Stockfish/src when a custom ARCH is needed.
     cp "$TMP_DIR/stockfish/${STOCKFISH_BINARY}" "$STOCKFISH_BIN"
     chmod +x "$STOCKFISH_BIN"
     echo "Installed: [$STOCKFISH_BIN]"
@@ -60,5 +60,5 @@ fi
 
 echo "==> Setup complete!"
 echo "IMPORTANT:"
-echo " 1. Review [apis/cores/cosmic_cfg.env] and [src/cosmic_rag.env]."
+echo " 1. Review [apis/cores/cosmic_cfg.env] and [src/cosmic_core.env]."
 echo " 2. Put secrets (OPENAI_API_KEY, hf_token, hf_token_finetune) in [apis/cores/cosmic_cfg.env]."

@@ -12,9 +12,9 @@ from numbers import Number
 
 
 ### Internal modules ###
-from src.services.qa import QABase
-from utils.log_tool import set_color
-from utils.num2word import convert_number2word
+from ..general_qa_answering.qa import QABase
+from ....utils.log_tool import set_color
+from ....utils.num2word import convert_number2word
 
 
 class QualityEval(QABase):

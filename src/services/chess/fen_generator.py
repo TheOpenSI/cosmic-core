@@ -6,9 +6,8 @@ from pandas import read_csv
 
 
 ### Internal modules ###
-from src.services import chess as chess_instances
-from src.services.chess.chess import ChessBase
-from utils.log_tool import set_color
+from .chess import ChessBase, StockfishFENNextMove
+from ....utils.log_tool import set_color
 
 
 class FENGenerator(ChessBase):
@@ -22,7 +21,7 @@ class FENGenerator(ChessBase):
         super().__init__(**kwargs)
 
         # Use Stockfish as chess backend.
-        self.chess_engine = chess_instances.StockfishFENNextMove()
+        self.chess_engine = StockfishFENNextMove()
 
 
     def __call__(

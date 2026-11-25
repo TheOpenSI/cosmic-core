@@ -5,7 +5,7 @@
 
 
 ### Internal modules ###
-from prompts.user_prompts.base import UserPromptBase
+from ..models.base import UserPromptBase
 
 
 class QueryAnalyserService(UserPromptBase):

@@ -6,7 +6,7 @@ from os import environ
 
 
 ### Internal modules ###
-from utils.env import load_env
+from ...utils.env import load_env
 
 
 # Load the runtime/example env files before anything reads os.environ.

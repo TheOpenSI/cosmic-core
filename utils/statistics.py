@@ -16,7 +16,7 @@ from pandas import DataFrame
 
 
 ### Internal modules ###
-from utils.env import PROJECT_ROOT
+from .env import PROJECT_ROOT
 
 
 statistic_dir: Path = PROJECT_ROOT.joinpath("data", "statistics")

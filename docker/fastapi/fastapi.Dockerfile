@@ -25,8 +25,5 @@ EXPOSE 3000/tcp
 # - Remove `--reload` flag (or add '--no-reload' flag if FastAPI CLI usable)
 # - Change `--host` flag value to hosting server IP address
 
-# NOTE:
-# There's a known issue about ANSI escape codes output to terminal when running
-# with `fastapi dev` under some conditions (https://github.com/fastapi/fastapi/discussions/13866).
-# Therefore, until the CLI maintainer patched this, we'll be using `uvicorn` CLI directly.
-CMD [ ".venv/bin/uvicorn", "--app-dir", "/", "--host", "0.0.0.0", "--port", "3000", "--reload", "main:app" ]
+# The FastAPI CLI resolves the package root from `/app` and imports `app.main`.
+CMD [ ".venv/bin/fastapi", "dev", "--host", "0.0.0.0", "--port", "3000" ]

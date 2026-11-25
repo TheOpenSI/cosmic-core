@@ -9,12 +9,12 @@ from re import search
 
 
 ### Internal modules ###
-from prompts.user_prompts.query_analyser import prompts as query_user_prompt_instances
-from src.models import llms as llm_instances
-from src.maps import LLM_INSTANCE_DICT
-from utils.env import PROJECT_ROOT
-from utils.log_tool import set_color
-from utils.module import get_instance
+from ...prompts.user_prompts.query_analyser import prompts as query_user_prompt_instances
+from .. import models as llm_instances
+from ..maps import LLM_INSTANCE_DICT
+from ...utils.env import PROJECT_ROOT
+from ...utils.log_tool import set_color
+from ...utils.module import get_instance
 
 
 

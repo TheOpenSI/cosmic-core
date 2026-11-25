@@ -8,7 +8,7 @@ from huggingface_hub import login
 
 
 ### Internal modules ###
-from src.maps import LLM_MODEL_DICT
+from ..maps import LLM_MODEL_DICT
 
 
 class LLMLogin:

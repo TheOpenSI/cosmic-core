@@ -4,7 +4,7 @@ docker/
 .dockerignore
 .env
 apis/cores/cosmic_cfg.env
-src/cosmic_rag.env
+src/cosmic_core.env
 bins/Fen-To-Board-Image/
 tests/
 .gitattributes
